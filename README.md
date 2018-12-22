@@ -9,8 +9,8 @@ It uses multidimensional arrays to interpret the structure of the data. Replicat
 
 A 1-way ANOVA may be called via `anova(observations)`.
 
-A 2-way ANOVA may be called via `anova(observations, [fixed, random])` if replicates are in vectors, or
-                                `anova(observations, [fixed, random], firstlevelreplicates = true)` if replicates are in the first index.
+A 2-way ANOVA may be called via e.g. `anova(observations, [fixed, random])` if replicates are in vectors, or
+                                     `anova(observations, [fixed, random], firstlevelreplicates = true)` if replicates are in the first index.
 
 Nested and 3-way ANOVA is planned
 
