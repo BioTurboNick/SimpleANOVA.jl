@@ -105,6 +105,22 @@ Factor  4685.0   3  1561.7  181.8   1e-12
 Error    137.5  16     8.6
 
 2-way ANOVA without replication:
+observations = Array{Vector{Float64}, 2}(undef, 3, 4)
+observations[1,1] = [123]
+observations[1,2] = [138]
+observations[1,3] = [110]
+observations[1,4] = [151]
+observations[2,1] = [145]
+observations[2,2] = [165]
+observations[2,3] = [140]
+observations[2,4] = [167]
+observations[3,1] = [156]
+observations[3,2] = [176]
+observations[3,3] = [185]
+observations[3,4] = [175]
+
+-or-
+
 observations = [123 138 110 151; 145 165 140 167; 156 176 185 175]
 
                 Factor B
@@ -153,8 +169,8 @@ Factor A    1   16.5    14.5
 Total       1827.7  11
 Cells       1461.3   3
 Factor A    1386.1   2  1386.1  60.5     8e-7
-Factor B      70.3   3    70.3   3.1    0.099
-Factor AxB      4.9  1     4.9   0.2
+Factor B      70.3   3    70.3   3.1      0.1
+Factor AxB      4.9  1     4.9   0.2      0.6
 Error        366.4   6   366.4
 
 
@@ -185,7 +201,7 @@ Nested Factor A     1   102 108 104
                     2   103 109 105
                         104 108 107
 
-                      SS    DF    MS
+                      SS    DF    MS     F
 Total               71.7    11
 Across Factor A     62.7     5
 Factor B            61.2     2  30.6
@@ -235,20 +251,20 @@ Factor C      1    2    1    2    1    2    1    2    1    2    1    2    1    2
             1.6  1.4  2.0  2.4  3.4  3.0  1.8  1.9  2.7  2.1  3.4  2.8  1.0  1.3  1.9  2.3  3.0  2.8
             1.4  1.5  2.6  2.6  3.2  2.7  2.2  1.7  2.3  2.4  3.2  3.2  1.4  1.2  2.2  2.2  3.1  2.9
 
-Factor Types                                 FFF   FFR   FRF   RFF   FRR   RFR   RRF   RRR
-                            SS    DF    MS     F     F     F     F     F     F     F     F
+Factor Types                                 FFF         FFR       FRF       RFF       FRR       RFR       RRF     RRR
+                            SS    DF    MS     F     p     F         F         F         F         F         F       F
 Total                     30.4    71
 Cells                     28.4    17
     Factors
-        Factor A           1.8     2   0.9  24.5   4.9   3.3  24.5   3.3   4.9   2.2   2.2
-        Factor B          24.7     2  12.3   332   141   332  44.8  44.8  40.0   141  40.0
-        Factor C          9e-3     1  9e-3   0.2   0.2   0.1  5e-2  4e-2  5e-2   0.1  5e-2
+        Factor A           1.8     2   0.9  24.5  3e-8  4.9       3.3      24.5       3.3       4.9       2.2      2.2
+        Factor B          24.7     2  12.3   332 5e-31  141       332      44.8      44.8      40.0       141     40.0
+        Factor C          9e-3     1  9e-3   0.2   0.6  0.2       0.1      5e-2      4e-2      5e-2       0.1     5e-2
     All Interactions
         Pair Interactions
-            Factor AxB     1.1     4   0.3   7.4   5.0   7.4   7.4   7.4   5.0   5.0   5.0
-            Factor AxC     0.4     2   0.2   5.0   5.0   3.4   5.0   3.4   5.0   3.4   3.4
-            Factor BxC     0.2     2  9e-2   2.4   2.4   2.4   1.6   1.6   1.6   2.4   1.6
-        Factor AxBxC       0.2     4  6e-2   1.5   1.5   1.5   1.5   1.5   1.5   1.5   1.5
+            Factor AxB     1.1     4   0.3   7.4  8e-5  5.0       7.4       7.4       7.4       5.0       5.0      5.0
+            Factor AxC     0.4     2   0.2   5.0  1e-2  5.0       3.4       5.0       3.4       5.0       3.4      3.4
+            Factor BxC     0.2     2  9e-2   2.4   0.1  2.4       2.4       1.6       1.6       1.6       2.4      1.6
+        Factor AxBxC       0.2     4  6e-2   1.5   0.2  1.5       1.5       1.5       1.5       1.5       1.5      1.5
 Error                      2.0    54  4e-2
 
 Currently only works for 1-way, 2-way, and 3-way ANOVAs
@@ -266,38 +282,21 @@ function validate(factortypes::Vector{FactorType}, ndims; noreplicates = false)
     nested ∉ factortypes || length(unique(factortypes[1:count(t -> t == nested, factortypes)])) == 1 || throw(ErrorException("nested entries must come before crossed factors"))
 end
 
-function anova(observations::T, factortypes::Vector{FactorType} = [fixed]) where {T <: AbstractArray{<:Number}}
+function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = [fixed]) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
     validate(factortypes, ndims(observations))
     firstlevelreplicates = first(factortypes) == replicate
 
-    #nfactors = ndims(observations) - (firstlevelreplicates ? 1 : 0)
     nnestedfactors = count(f -> f == nested, factortypes)
     crossedfactortypes = filter(f -> f ∈ [fixed, random], factortypes)
     ncrossedfactors = length(crossedfactortypes)
     nreplicates = firstlevelreplicates ? size(observations, 1) : length(observations[1])
+    firstlevelreplicates || all(c -> length(c) == nreplicates, observations) || throw(ErrorException("All cells must have the same number of replicates."))
     ncells = Int.(length(observations) / (firstlevelreplicates ? nreplicates : 1))
     nfactorlevels = firstlevelreplicates ? [size(observations)...][Not(1)] : [size(observations)...]
 
 
-    anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes)
-end
-
-function anova(observations::T, factortypes::Vector{FactorType} = [fixed]) where {T <: AbstractArray{<:AbstractVector{<:Number}}}
-    length(observations) > 0 || return
-    validate(factortypes, ndims(observations), noreplicates = true)
-
-    #nfactors = ndims(observations)
-    nnestedfactors = count(f -> f == nested, factortypes)
-    crossedfactortypes = filter(f -> f ∈ [fixed, random], factortypes)
-    ncrossedfactors = length(crossedfactortypes)
-    nreplicates = length(observations[1])
-    nreplicates > 0 || return
-    all(c -> length(c) == nreplicates, observations) || throw(ErrorException("All cells must have the same number of replicates."))
-    ncells = length(observations)
-    nfactorlevels = [size(observations)...]
-
-    anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes)
+    anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes)
 end
 
 function factorscalc(cellsums, nfactors, nfactorlevels, N, C)
@@ -331,26 +330,6 @@ function remaindercalc(total, factors)
     AnovaFactor(ss,df)
 end
 
-#=
-function pairwiseinteractionscalc(cells, factors)
-    factors_ss = map(f -> f.ss, factors)
-    factors_df = map(f -> f.df, factors)
-
-    ss = cells.ss .- (factors_ss .+ factors_ss')  # symmetric matrix of interaction terms, diagonal is meaningless
-    df = factors_df .* factors_df'
-    AnovaFactor.(ss, df)
-end
-
-function threewiseinteractionscalc(cells, factors)
-    factors_ss = map(f -> f.ss, factors)
-    factors_df = map(f -> f.df, factors)
-
-    ss = cells.ss .- (factors_ss .+ factors_ss' .+ reshape(factors_ss, (1,1,3)))  # symmetric matrix of interaction terms, diagonal is meaningless
-    df = factors_df .* factors_df' .* reshape(factors_df, (1,1,3))
-    AnovaFactor.(ss, df)
-end
-=#
-
 function calccellsums(observations::T, nfactors, nfactorlevels) where {T <: AbstractArray{<:AbstractVector{<:Number}}}
     map(c -> sum(c), observations)
 end
@@ -382,17 +361,15 @@ function nestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, C)
 end
 
 
-function anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes)
+function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes)
     N = ncells * nreplicates
+    nfactors = nnestedfactors + ncrossedfactors
 
     # collapse replicate dimension
     cellsums = calccellsums(observations, nfactors, nfactorlevels)
-
     C = sum(cellsums) ^ 2 / N
-
     total = totalcalc(observations, N, C)
-
-    amongallnested, nestedsums, nupperfactorlevels = nestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, C)
+    amongallnested, nestedsums, ncrossedfactorlevels = nestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, C)
 
     #errorSS = total.ss - amongallnested[1].ss
     #errorDF = total.df - amongallnested[1].df
@@ -400,7 +377,7 @@ function anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, nc
     nonerror = nnestedfactors > 0 ? amongallnested[1] : cells
     error = errorcalc(total, nonerror, nfactorlevels, nreplicates)
 
-    crossedfactors = factorscalc(nestedsums, ncrossedfactors, nupperfactorlevels, N, C)
+    crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C)
 
     #for one factor and one nested only
     if nnestedfactors > 0
@@ -409,24 +386,32 @@ function anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, nc
         nestedfactors = [AnovaFactor(nestedss, nesteddf)]
     end
 
-    if ncrossedfactors > 1
-        pairwise = pairwisecalc(cellsums, crossedfactors, ncrossedfactors)
+    if nreplicates == 1 && nnestedfactors == 0
+        # if there are no replicates or nested factors, no interaction tests are possible,
+        # all factors are compared against the remainder. If an interaction is assumed,
+        # fixed factors must be treated with caution if all are fixed, and random factor
+        # must be treated with caution when one is fixed and one is random.
+        # uncertain if this holds for 3-way ANOVA.
+        remainder = remaindercalc(total, crossedfactors)
+        f, p = ftest.(crossedfactors, Ref(remainder))
+    elseif ncrossedfactors > 1
+        # multiple crossed factors with nested factors
+        pairwise = pairwisecalc(cellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nreplicates, C)
 
         basedenominator = nnestedfactors > 0 ? nested[end] : error
 
-        # not yet considering the interaction term denominators
-        if nfactors == 2
+        if ncrossedfactors == 2
             if all(f -> f == fixed, crossedfactortypes)
                 crosseddenominators = repeat([basedenominator], ncrossedfactors)
             elseif all(f -> f == random, crossedfactortypes)
-                crosseddenominators = repeat([pairwise], ncrossedfactors)
+                crosseddenominators = repeat([pairwise[1,2]], ncrossedfactors)
             else
-                crosseddenominators = map(f -> f == fixed ? basedenominator : pairwise, crossedfactortypes)
+                crosseddenominators = map(f -> f == fixed ? basedenominator : pairwise[1,2], crossedfactortypes)
             end
 
-            interactions = pairwise
+            interactions = pairwise[1,2]
             interactionsdenominators = basedenominator
-        elseif nfactors == 3
+        elseif ncrossedfactors == 3
             threewise = threewisecalc(cells, crossedfactors, pairwise)
             interactions = [pairwise[1,2], pairwise[1,3], pairwise[2,3], threewise]
 
@@ -475,10 +460,9 @@ function anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, nc
 
             threewiseinteractiondenominators = basedenominator
             interactionsdenominators = [pairwiseinteractiondenominators; threewiseinteractiondenominators]
-        elseif nfactors >= 4
+        elseif ncrossedfactors >= 4
             throw(ErrorException("ANOVA with 4 or more crossed factors is not supported."))
         end
-
 
         if nnestedfactors > 0
             nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
@@ -490,9 +474,8 @@ function anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, nc
         else
             f, p = ftest.([crossedfactors; interactions], [crosseddenominators; interactionsdenominators])
         end
-
-
     elseif nnestedfactors > 1
+        # one factor with multiple nested factors
         crossedfactor = crossedfactors[1]
         nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
         nesteddenominators[1] = error
@@ -502,9 +485,11 @@ function anovanestedkernel(observations, nreplicates, ncells, nnestedfactors, nc
 
         f, p = ftest.([crossedfactor, nested], [nested[end], nesteddenominators])
     elseif nnestedfactors == 1
+        # one factor with one nested factor
         crossedfactor = crossedfactors[1]
         f, p = ftest.([crossedfactor, nested[1]], [nested[end], error])
     else
+        # one factor with no nested factors
         crossedfactor = crossedfactors[1]
         f, p = ftest(crossedfactor, error)
     end
@@ -513,7 +498,7 @@ end
 
 #Nested varies from crossed in that the highest-level nested factor takes the place of the error term as a denominator for the crossed values
 
-function pairwisecalc(cellsums, factors, nfactors)
+function pairwisecalc(cellsums, factors, nfactors, nfactorlevels, nreplicates, C)
     pairwise = Array{AnovaFactor,2}(undef, nfactors, nfactors)
     factorindexes = 1:nfactors
     for i ∈ factorindexes
@@ -541,103 +526,6 @@ function threewayinteraction(interaction_ab, interaction_bc, interaction_abc)
     ms = interaction_ab.ms + interaction_bc.ms - interaction_abc.ms
     df = ms ^ 2 / (reducedmeansquare(interaction_ab) + reducedmeansquare(interaction_bc) + reducedmeansquare(interaction_abc))
     AnovaFactor(ms * df, df, ms)
-end
-
-function anovakernel(observations, nreplicates, ncells, nfactors, nfactorlevels, factortypes)
-    N = ncells * nreplicates
-
-    factortypes = filter(f -> f ≠ replicate, factortypes)
-
-    # collapse replicate dimension
-    cellsums = calccellsums(observations, nfactors, nfactorlevels)
-
-    C = sum(cellsums) ^ 2 / N
-
-    total = totalcalc(observations, N, C)
-    factors = factorscalc(cellsums, nfactors, nfactorlevels, N, C)
-
-    if nreplicates > 1
-        if nfactors == 1
-            factor = factors[1]
-            error = errorcalc(total, factor, nfactorlevels, nreplicates)
-            f, p = ftest(factor, error)
-        elseif nfactors > 1
-            cells = cellscalc(cellsums, nreplicates, ncells, C)
-            error = errorcalc(total, cells, nfactorlevels, nreplicates)
-            pairwise = pairwisecalc(cellsums, factors, nfactors)
-
-            # not yet considering the interaction term denominators
-            if nfactors == 2
-                if all(f -> f == fixed, factortypes)
-                    denominators = repeat([error], nfactors)
-                elseif all(f -> f == random, factortypes)
-                    denominators = repeat([pairwise], nfactors)
-                else
-                    denominators = map(f -> f == fixed ? error : pairwiseinteractions, factortypes)
-                end
-
-                interactions = pairwise
-                interactionsdenominators = error
-            elseif nfactors == 3
-                threewise = threewisecalc(cells, factors, pairwise)
-                interactions = [pairwise[1,2], pairwise[1,3], pairwise[2,3], threewise]
-
-                if all(f -> f == fixed, factortypes)
-                    denominators = repeat([error], nfactors)
-                    pairwiseinteractiondenominators = repeat([error], nfactors)
-                elseif all(f -> f == random, factortypes)
-                    denominators = Vector{AnovaFactor}(undef, nfactors)
-                    for i ∈ 1:nfactors
-                        otherfactors = (1:nfactors)[Not(i)]
-                        j = otherfactors[1]
-                        k = otherfactors[2]
-                        denominators[i] = threewayinteraction(pairwiseinteractions[i,j], pairwiseinteractions[i,k], threewiseinteractions)
-                    end
-                    pairwiseinteractiondenominators = repeat([threewiseinteractions], nfactors)
-                elseif count(f -> f == random, factortypes) == 1
-                    i = findfirst(f -> f == random, factortypes)
-
-                    denominators = Vector{AnovaFactor}(undef, nfactors)
-                    denominators[i] = error
-
-                    fixedindexes = (1:nfactors)[Not(i)]
-                    for j ∈ fixedindexes
-                        denominators[j] = pairwiseinteractions[i,j]
-                    end
-
-                    fixedinteractionindex = sum(fixedindexes) - 2
-                    pairwiseinteractiondenominators = Vector{AnovaFactor}(undef, nfactors)
-                    pairwiseinteractiondenominators[fixedinteractionindex] = threewiseinteractions
-                    pairwiseinteractiondenominators[Not(fixedinteractionindex)] .= error
-                elseif count(f -> f == random, factortypes) == 2
-                    i = findfirst(f -> f == fixed, factortypes)
-                    otherfactors = (1:nfactors)[Not(i)]
-                    j = otherfactors[1]
-                    k = otherfactors[2]
-
-                    denominators = Vector{AnovaFactor}(undef, nfactors)
-                    denominators[i] = threewayinteraction(pairwiseinteractions[i,j], pairwiseinteractions[i,k], threewiseinteractions)
-                    denominators[otherfactors] .= pairwiseinteractions[j,k]
-
-                    randominteractionindex = sum(otherfactors) - 2
-                    pairwiseinteractiondenominators = Vector{AnovaFactor}(undef, nfactors)
-                    pairwiseinteractiondenominators[randominteractionindex] = error
-                    pairwiseinteractiondenominators[Not(randominteractionindex)] .= threewiseinteractions
-                end
-
-                threewiseinteractiondenominators = error
-                interactionsdenominators = [pairwiseinteractiondenominators; threewiseinteractiondenominators]
-            elseif nfactors >= 4
-                throw(ErrorException("ANOVA with 4 or more crossed factors is not supported."))
-            end
-
-            f, p = ftest.([factors; interactions], [denominators; interactionsdenominators])
-        end
-    else
-        remainder = remaindercalc(total, factors)
-
-        f, p = ftest.(factors, Ref(remainder))
-    end
 end
 
 export anova, FactorType
