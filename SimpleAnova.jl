@@ -6,7 +6,7 @@ include("InvertedIndices.jl")
 
 import Main.InvertedIndices.Not
 
-@enum FactorType fixed random nested replicate
+@enum FactorType fixed random nested replicates
 
 abstract type AnovaEffect
 end
@@ -185,6 +185,20 @@ Factor A    1   16.5    14.5
                 35.8    25.0
                 40.2    29.3
 
+1-way ANOVA with 2 nested factors, replicates
+Specified in multidimensional array with 1st dimension as replicate
+observations = cat(cat(hcat([3.17, 4.41, 1.81, 1.74], [2.81, 4.98, 2.62, 2.53]),
+                       hcat([3.0, 3.02, 4.73, 1.77], [4.13, 0.71, 3.18, 3.34]), dims = 3),
+                   cat(hcat([2.42, 1.28, 1.4, 2.56], [1.26, 1.08, 1.42, 0.85]),
+                       hcat([0.36, 0.35, 2.64, 3.75], [3.86, 2.53, 3.97, 3.03]), dims = 3),
+                   cat(hcat([5.24, 2.24, 0.18, 3.06], [4.04, 4.14, 0.33, 4.61]),
+                       hcat([6.06, 1.61, 2.25, 2.44], [0.02, 3.95, 0.87, 2.0]), dims = 3), dims = 4)
+    Note: must specify that first dimension is a replicate
+
+
+
+
+
 
 3-way ANOVA
 Specified in Array with cells nested as vectors
@@ -252,7 +266,7 @@ Next: expand to fully nested 2-way ANOVAs
 function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = [fixed]) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
     validate(factortypes, ndims(observations))
-    firstlevelreplicates = first(factortypes) == replicate
+    firstlevelreplicates = first(factortypes) == replicates
 
     nnestedfactors = count(f -> f == nested, factortypes)
     crossedfactortypes = filter(f -> f ∈ [fixed, random], factortypes)
@@ -271,9 +285,9 @@ function validate(factortypes::Vector{FactorType}, ndims; noreplicates = false)
     if noreplicates
         replicate ∉ factortypes || throw(ErrorException("replicates are not valid for this structure."))
     else
-        replicate ∉ factortypes || first(factortypes) == replicate || throw(ErrorException("replicate must be the first entry if present"))
+        replicate ∉ factortypes || first(factortypes) == replicates || throw(ErrorException("replicates must be the first entry if present"))
     end
-    factortypes = filter(t -> t ≠ replicate, factortypes)
+    factortypes = filter(t -> t ≠ replicates, factortypes)
     nested ∉ factortypes || length(unique(factortypes[1:count(t -> t == nested, factortypes)])) == 1 || throw(ErrorException("nested entries must come before crossed factors"))
 end
 
@@ -305,7 +319,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     end
 
     # perform test
-    ftest.(numerators, denominators)
+    ftest.(numerators, denominators) # need to order them from highest to lowest
 end
 
 function calccellsums(observations::T, nfactors, nfactorlevels) where {T <: AbstractArray{<:AbstractVector{<:Number}}}
@@ -363,7 +377,7 @@ function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplic
 
         nlowerfactorlevels = nfactorlevels[1:i]
         nupperfactorlevels = nfactorlevels[(i+1):end]
-        nestedsums = reshape(sum(nestedsums, dims = i), (nupperfactorlevels...))
+        nestedsums = reshape(sum(nestedsums, dims = 1), (nupperfactorlevels...))
     end
 
     amongallnested, nestedsums, nupperfactorlevels, nlowerfactorlevels
@@ -418,9 +432,11 @@ function nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, inter
     nestedfactors = []
     interactions
     if nnestedfactors > 0
-        nestedss = amongallnested[1].ss - sum(f -> f.ss, [crossedfactors; interactions])
-        nesteddf = amongallnested[1].df - sum(f -> f.df, [crossedfactors; interactions])
-        nestedfactors = [AnovaFactor(nestedss, nesteddf)]
+        for i ∈ 1:nnestedfactors
+            ss = amongallnested[i].ss - sum(f -> f.ss, [crossedfactors; interactions])
+            df = amongallnested[i].df - sum(f -> f.df, [crossedfactors; interactions])
+            push!(nestedfactors, AnovaFactor(ss, df))
+        end
     end
     nestedfactors
 end
