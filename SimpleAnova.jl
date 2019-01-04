@@ -285,7 +285,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     cellsums = calccellsums(observations, nfactors, nfactorlevels)
     C = sum(cellsums) ^ 2 / N
     total = totalcalc(observations, N, C)
-    amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, C)
+    amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
 
     cells = cellscalc(cellsums, nreplicates, ncells, C)
     nonerror = nnestedfactors > 0 ? amongallnested[1] : cells
@@ -295,7 +295,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C)
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions)
 
-    numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, interactions)
+    numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
     denominators = getdenominators(nnestedfactors, nestedfactors, nreplicates, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)
 
     # drop least significant term if nreplicates == 1
@@ -348,7 +348,7 @@ function remaindercalc(total, factors)
     AnovaFactor(ss,df)
 end
 
-function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, C)
+function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
     nestedsums = cellsums
     nlowerfactorlevels = 1
     nupperfactorlevels = nfactorlevels
@@ -425,7 +425,7 @@ function nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, inter
     nestedfactors
 end
 
-function getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, interactions)
+function getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
     numerators = copy(crossedfactors)
 
     if ncrossedfactors > 1
@@ -479,7 +479,7 @@ function getdenominators(nnestedfactors, nestedfactors, nreplicates, error, tota
 
             fixedindexes = (1:ncrossedfactors)[Not(i)]
             for j ∈ fixedindexes
-                crosseddenominators[j] = interactions[(i,j)]
+                crosseddenominators[j] = interactionsmap[(i,j)]
             end
 
             fixedinteractionindex = sum(fixedindexes) - 2
