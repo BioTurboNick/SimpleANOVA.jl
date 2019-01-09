@@ -6,10 +6,15 @@ include("AnovaEffect.jl")
 A set of values for an Anova factor which has been tested
 
 `name` - the name of this factor
+
 `ss` - sum of squares
+
 `df` - degrees of freedom
+
 `ms` - mean square
+
 `f` - the F statistic
+
 `p` - the probability of a Type I error (imcorrect rejection of null hypothesis)
 """
 struct AnovaResult <: AnovaEffect
