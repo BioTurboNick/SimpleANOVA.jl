@@ -3,6 +3,10 @@ module SimpleAnova
 using Statistics
 using Distributions
 include("InvertedIndices.jl")
+include("AnovaValue.jl")
+include("AnovaFactor.jl")
+include("AnovaResult.jl")
+include("FactorType.jl")
 
 import Main.InvertedIndices.Not
 
@@ -10,40 +14,6 @@ const totalname = "Total"
 const cellsname = "Cells"
 const errorname = "Error"
 const remaindername = "Remainder"
-
-@enum FactorType fixed random nested replicates
-
-Broadcast.broadcastable(a::FactorType) = (a,)
-
-abstract type AnovaEffect
-end
-
-struct AnovaValue <: AnovaEffect
-    name::AbstractString
-    ss::Float64
-    df::Float64
-end
-
-struct AnovaFactor <: AnovaEffect
-    name::AbstractString
-    ss::Float64
-    df::Float64
-    ms::Float64
-end
-
-struct AnovaResult <: AnovaEffect
-    name::AbstractString
-    ss::Float64
-    df::Float64
-    ms::Float64
-    f::Float64
-    p::Float64
-end
-
-Broadcast.broadcastable(a::AnovaFactor) = (a,) # workaround for current behavior
-
-AnovaFactor(name, ss, df) = AnovaFactor(name, ss, df, ss / df)
-AnovaResult(factor, f, p) = AnovaResult(factor.name, factor.ss, factor.df, factor.ms, f, p)
 
 
 #=
@@ -278,14 +248,76 @@ Cells                     28.4    17
         Factor AxBxC       0.2     4  6e-2   1.5   0.2  1.5       1.5       1.5       1.5       1.5       1.5      1.5
 Error                      2.0    54  4e-2
 
-Currently only works for 1-way, 2-way, and 3-way ANOVAs
-Next: expand to fully nested 2-way ANOVAs
+
+1-way ANOVA within subjects
+observations = Array{Vector{Float64}, 2}(undef, 7, 3)
+observations[1,1] = [164]
+observations[1,2] = [152]
+observations[1,3] = [178]
+observations[2,1] = [202]
+observations[2,2] = [181]
+observations[2,3] = [222]
+observations[3,1] = [143]
+observations[3,2] = [136]
+observations[3,3] = [132]
+observations[4,1] = [210]
+observations[4,2] = [194]
+observations[4,3] = [216]
+observations[5,1] = [228]
+observations[5,2] = [219]
+observations[5,3] = [245]
+observations[6,1] = [173]
+observations[6,2] = [159]
+observations[6,3] = [182]
+observations[7,1] = [161]
+observations[7,2] = [157]
+observations[7,3] = [165]
+
+-or-
+
+observations = [164 152 178; 202 181 222; 143 136 132; 210 194 216; 228 219 245; 173 159 182; 161 157 165]
+
+                Factor
+                  1   2   3
+Subjects    1   164 152 178
+            2   202 181 222
+            3   143 136 132
+            4   210 194 216
+            5   228 219 245
+            6   173 159 182
+            7   161 157 165
 =#
 
-function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = [fixed], factorlabels::Vector{<:AbstractString} = ["A"]) where {T <: Union{Number, AbstractVector{<:Number}}}
+function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = [fixed], factorlabels::Vector{<:AbstractString} = ["A"], withinsubjects = false) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
     validate(factortypes, ndims(observations))
     firstlevelreplicates = first(factortypes) == replicates
+
+    # for randomized blocks, only real differences is that "blocks" factor isn't tested. Option?
+    # for repeated measures, only difference is that "subjects" factor isn't tested. Option?
+    #     if 2 factors, treated as 3-way ANOVA with subjects as random factor. Where does remainder come in with a 3-way?
+    # for latin squares, test as a 3-factor ANOVA with 1 fixed and 2 random factors
+    # multiway blocked/repeated measures with within-and-among factors will need another look, but may just be
+    #     the same as nesting? No, looks like not because the factor could be fixed
+
+    # If missing data in without-replicate design, need to calculate and provide the bias. Can provide that with below function?
+    # Although, idea is for user to have to make few decisions...
+
+    # Get replicate counts per cell.
+    # If equal, proceed as normal
+    # If proportional, proceed with matrix of nreplicates (question: how to make generalized?)
+    # The function will not handle replacement of mising if disproportional, but Shearer's function will be available to allow user
+    # to create such estimates for themselves.
+    # Also provide a random deletion function?
+    # Note: GLM can deal with high unequal replication
+
+    # can provide power equations too.
+
+    #  Different type Sums of Squares only apply for unbalanced designs
+    #  Type I is bad and should never be done.
+    #  Type II is only valid if there is no interaction. This is the same advice of my stats book.
+    #  Type III is valid if there are interactions, but usually it isn't useful to interpret if there are interactions.
+    #  I'll stick with Type II and document it.
 
     nnestedfactors = count(f -> f == nested, factortypes)
     crossedfactortypes = filter(f -> f ∈ [fixed, random], factortypes)
@@ -300,7 +332,11 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     crossedfactorlabels = factorlabels[nonreplicatefactortypes .≠ nested]
     nestedfactorlabels = factorlabels[nonreplicatefactortypes .== nested]
 
-    anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactorlabels, nestedfactorlabels)
+    if withinsubjects
+        anovasubjectskernel(observations, nreplicates)
+    else
+        anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactorlabels, nestedfactorlabels)
+    end
 end
 
 function validate(factortypes::Vector{FactorType}, ndims; noreplicates = false)
@@ -319,7 +355,8 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     nfactors = nnestedfactors + ncrossedfactors
 
     # collapse replicate dimension
-    cellsums = calccellsums(observations, nfactors, nfactorlevels)
+    #cellsums = calccellsums(observations, nfactors, nfactorlevels)
+    cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
     C = sum(cellsums) ^ 2 / N
     total = totalcalc(observations, N, C)
     amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
@@ -348,16 +385,52 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     # perform test
     results = ftest.(numerators, denominators) # need to order them from highest to lowest
 
-    [total; results; basedenominator]
+    AnovaData([total; results; basedenominator])
 end
 
-function calccellsums(observations::T, nfactors, nfactorlevels) where {T <: AbstractArray{<:AbstractVector{<:Number}}}
-    map(c -> sum(c), observations)
+function anovasubjectskernel()
+    N = ncells * nreplicates
+    nfactors = nnestedfactors + ncrossedfactors
+
+    # collapse replicate dimension
+    cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
+    C = sum(cellsums) ^ 2 / N
+    total = totalcalc(observations, N, C)
+
+    # for moment, assuming first dimension is subject
+    subjectsss = sum(sum(cellsums, dims = 2) .^ 2) / 3 -  C # 3 is number of elements for the subject, dims = 2 is all but the subject dimension
+
+    #factors and interactions calculated as normal
+
+    withinsubjectsss = totalss - subjectsss
+    withinsubjectsdf = nsubjects * nfactoroutside * factorinsidedf
+
+    subjectswithinfactorsss = subjectss - factorsss  #guess
+    subjectswithinfactorsdf = subjectdf - factorsdf
+
+    withinsubjectinteractionsss = withinsubjectsss - withinsubjectsfactorss - interactionss
+    withinsubjectinteractionsdf = withisubjectsdf - withinsubjectsfactordf - interactiondf
+
+
+    #test for A; A / subjects within factor A
+    # test for B; B / withinsubjectinteractions
+    # test for interaction; interaction / withinsubjectinteraction
 end
 
-function calccellsums(observations::T, nfactors, nfactorlevels) where {T <: AbstractArray{<:Number}}
-    ndims(observations) > nfactors || return observations
-    reshape(sum(observations, dims = 1), (nfactorlevels...)) # check dropdims
+function sumfirstdim(observations::T) where {T <: AbstractArray{<:AbstractVector}}
+    map(sumfirstdim, observations)
+end
+
+function sumfirstdim(observations::T) where {T <: AbstractArray{<:Number}}
+    if (ndims(observations) > 1)
+        dropdims(sum(observations, dims = 1), dims = 1)
+    else
+        sum(observations)
+    end
+end
+
+function sumfirstdim(observations::T) where {T <: AbstractVector{<:Number}}
+    first(sum(observations, dims = 1))
 end
 
 function totalcalc(observations, N, C)
@@ -406,7 +479,7 @@ function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplic
 
         nlowerfactorlevels = nfactorlevels[1:i]
         nupperfactorlevels = nfactorlevels[(i+1):end]
-        nestedsums = reshape(sum(nestedsums, dims = 1), (nupperfactorlevels...))
+        nestedsums = sumfirstdim(nestedsums)
     end
 
     amongallnested, nestedsums, nupperfactorlevels, nlowerfactorlevels
@@ -576,6 +649,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-export anova, AnovaFactor, AnovaResult, FactorType
+export anova, AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, FactorType
 
 end
