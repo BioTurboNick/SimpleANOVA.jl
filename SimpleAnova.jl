@@ -292,17 +292,51 @@ Subjects    1   164 152 178
 """
     anova(observations, [factortypes, factorlabels])
 
+`observations` - Matrix containing the values. Each dimension is a factor level, such that observations[2,5,3] indicates
+the 2nd level of the first factor, the 5th level of the second factor, and the 3rd level of the third factor. May
+contain values or vectors of values, where the vector contains replicates.
 
+`factortypes` - Vector indicating the `FactorType` for each factor. If present, `replicates` must appear first, any
+`nested` after, and then `random` or `fixed` in any order. Specify `replicates` if the first dimension of the
+`observations` matrix contains replicate values (vs. contained in vectors). If too few values are provided, remaining
+are assumed to be `fixed`.
+
+`factornames` - Vector of names for each factor, excluding the replicate factor. If empty, will be automatically
+populated.
+
+Notes: Requires balanced data.
+
+Output: `AnovaData` structure containing the test results for each factor.
+
+Examples:
+N-way fixed-effects ANOVA with replicates in vectors: anova(observations)
+
+N-way fixed-effects ANOVA with replicates in first dimension: anova(observations, [replicates])
+
+2-way ANOVA with Factor 1 random and Factor B fixed with replicates in vectors: anova(observations, [random])
+
+2-way ANOVA with Factor 1 fixed and Factor B random with replicates in vectors: anova(observations, [fixed, random])
+
+2-way fixed-effects ANOVA with 2 random nested factors with replicates in first dimension:
+anova(observations, [replicates, nested, nested])
 """
-function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = [], factorlabels::Vector{<:AbstractString} = [], withinsubjects = false) where {T <: Union{Number, AbstractVector{<:Number}}}
+function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[], withinsubjects = false) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
 
+    firstlevelreplicates = first(factortypes) == replicates
+
     # if empty, defaults to assuming ndims = nfactors and all factors are fixed
-    isempty(factortypes) && factortypes = repeat([fixed], ndims(observations))
-    isempty(factorlabels) && factorlabels = ["F", "E", "D", "C", "B", "A"][4 - ndims(observations):end]
+    if isempty(factortypes) || length(factortypes) < ndims(observations)
+        nremaining = ndims(observations) - length(factortypes)
+        factortypes = [factortypes; repeat([fixed], nremaining)]
+    end
+
+    if isempty(factornames)
+        factornames = ["A", "B", "C", "D", "E", "F"][1:(ndims(observations) - (firstlevelreplicates ? 1 : 0))]
+        reverse!(factorlabels)
+    end
 
     validate(factortypes, ndims(observations))
-    firstlevelreplicates = first(factortypes) == replicates
 
     # for randomized blocks, only real differences is that "blocks" factor isn't tested. Option?
     # for repeated measures, only difference is that "subjects" factor isn't tested. Option?
@@ -340,13 +374,13 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     nfactorlevels = firstlevelreplicates ? [size(observations)...][Not(1)] : [size(observations)...]
 
     nonreplicatefactortypes = filter(t -> t ≠ replicates, factortypes)
-    crossedfactorlabels = factorlabels[nonreplicatefactortypes .≠ nested]
-    nestedfactorlabels = factorlabels[nonreplicatefactortypes .== nested]
+    crossedfactornames = factornames[nonreplicatefactortypes .≠ nested]
+    nestedfactornames = factornames[nonreplicatefactortypes .== nested]
 
     if withinsubjects
         anovasubjectskernel(observations, nreplicates)
     else
-        anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactorlabels, nestedfactorlabels)
+        anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
     end
 end
 
@@ -375,9 +409,9 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     nonerror = nnestedfactors > 0 ? amongallnested[1] : cells
     error = errorcalc(nreplicates > 1 ? errorname : remaindername, total, nonerror)
 
-    crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactorlabels)
-    interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactorlabels)
-    nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactorlabels)
+    crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames)
+    interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames)
+    nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
 
