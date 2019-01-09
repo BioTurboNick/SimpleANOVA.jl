@@ -304,7 +304,7 @@ are assumed to be `fixed`.
 `factornames` - Vector of names for each factor, excluding the replicate factor. If empty, will be automatically
 populated.
 
-Notes: Requires balanced data.
+Notes: Requires balanced data. The last index will be your "topmost" factor.
 
 Output: `AnovaData` structure containing the test results for each factor.
 
@@ -382,6 +382,19 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     else
         anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
     end
+end
+
+function anova(observations::AbstractVector{<:Number}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[])
+    # take a vector of observations and a vector containing a vector for each factor assigning the observations to a factor level of that factor.
+
+    # ensure observations are balanced
+    # reorganize observations into matrix and complete as normal
+    anova(observationsmatrix, factortypes, factornames)
+end
+
+function anova(observations::AbstractVector{<:Number}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[])
+    # extract data from DataFame, place into matrix, and then proceed
+    anova(observations, factorassignments, factortypes, factornames)
 end
 
 function validate(factortypes::Vector{FactorType}, ndims; noreplicates = false)

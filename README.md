@@ -9,7 +9,7 @@ Handles ANOVA with up to 3 crossed factors (fixed or random) and arbitrarily man
 
 It uses multidimensional arrays to interpret the structure of the data. Replicates should either be indexed along the first dimension or contained in a vector, with Factor A and Factor B the next available indices.
 
-`factortype` argument must be provided to specify the type of each dimension of the matrix. `fixed`, `random`, `nested`, or `replicate`. E.g. a 3-way ANOVA (1 random, 2 fixed) with 2 nested factors and replicates contained in vectors would be specified by `[nested, nested, random, fixed, fixed]`. If the replicates are instead the first dimension of the matrix: `[replicates, nested, nested, random, fixed, fixed]`. `replicates` must come first, followed by `nested`, followed by `random` or `fixed` in any order.
+See docstring for usage.
 
 
 VERY EXPERIMENTAL - NOT READY FOR REAL USE
