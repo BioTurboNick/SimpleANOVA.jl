@@ -323,13 +323,13 @@ anova(observations, [replicates, nested, nested])
 function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[], withinsubjects = false) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
 
-    firstlevelreplicates = first(factortypes) == replicates
-
     # if empty, defaults to assuming ndims = nfactors and all factors are fixed
     if isempty(factortypes) || length(factortypes) < ndims(observations)
         nremaining = ndims(observations) - length(factortypes)
         factortypes = [factortypes; repeat([fixed], nremaining)]
     end
+
+    firstlevelreplicates = first(factortypes) == replicates
 
     if isempty(factornames)
         factornames = ["A", "B", "C", "D", "E", "F"][1:(ndims(observations) - (firstlevelreplicates ? 1 : 0))]
@@ -395,7 +395,7 @@ function validate(factortypes::Vector{FactorType}, ndims; noreplicates = false)
     nested ∉ factortypes || nonreplicatefactortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || throw(ErrorException("nested entries must come before crossed factors"))
 end
 
-function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactorlabels, nestedfactorlabels)
+function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
     N = ncells * nreplicates
     nfactors = nnestedfactors + ncrossedfactors
 
