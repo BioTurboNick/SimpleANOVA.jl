@@ -1,5 +1,3 @@
-include("AnovaEffect.jl")
-
 """
     AnovaResult <: AnovaEffect
 

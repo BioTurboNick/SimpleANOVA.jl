@@ -3,13 +3,12 @@ module SimpleAnova
 using Statistics
 using Distributions
 include("InvertedIndices.jl")
+include("AnovaEffect.jl")
 include("AnovaValue.jl")
 include("AnovaFactor.jl")
 include("AnovaResult.jl")
 include("AnovaData.jl")
 include("FactorType.jl")
-
-import Main.InvertedIndices.Not
 
 const totalname = "Total"
 const cellsname = "Cells"
@@ -290,7 +289,7 @@ Subjects    1   164 152 178
 =#
 
 """
-    anova(observations, [factortypes, factorlabels])
+    anova(observations, [factortypes, factornames])
 
 `observations` - Matrix containing the values. Each dimension is a factor level, such that observations[2,5,3] indicates
 the 2nd level of the first factor, the 5th level of the second factor, and the 3rd level of the third factor. May
@@ -333,7 +332,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
 
     if isempty(factornames)
         factornames = ["A", "B", "C", "D", "E", "F"][1:(ndims(observations) - (firstlevelreplicates ? 1 : 0))]
-        reverse!(factorlabels)
+        reverse!(factornames)
     end
 
     validate(factortypes, ndims(observations))

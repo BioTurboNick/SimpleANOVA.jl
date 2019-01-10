@@ -1,7 +1,3 @@
-module InvertedIndices
-
-export InvertedIndex, Not
-
 """
     InvertedIndex(idx)
     Not(idx)
@@ -35,7 +31,3 @@ end
 # Determining the indices that the InvertedIndex spans is tricky due to partial
 # linear indexing. Lean on `Base.uncolon` until the deprecation goes through.
 @inline spanned_indices(inds, I::Tuple{InvertedIndex,Vararg{Any}}) = (Base.uncolon(inds, (:, Base.tail(I)...)).indices,)
-
-
-
-end # module
