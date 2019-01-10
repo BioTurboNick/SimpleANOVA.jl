@@ -325,7 +325,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     # if empty, defaults to assuming ndims = nfactors and all factors are fixed
     if isempty(factortypes) || length(factortypes) < ndims(observations)
         nremaining = ndims(observations) - length(factortypes)
-        factortypes = [factortypes; repeat([fixed], nremaining)]
+        append!(factortypes, repeat([fixed], nremaining))
     end
 
     firstlevelreplicates = first(factortypes) == replicates
@@ -418,12 +418,13 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
 
     cells = cellscalc(cellsums, nreplicates, ncells, C)
-    nonerror = nnestedfactors > 0 ? amongallnested[1] : cells
-    error = errorcalc(nreplicates > 1 ? errorname : remaindername, total, nonerror)
 
     crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames)
     interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames)
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
+
+    nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
+    error = nnestedfactors > 0 || nreplicates > 1 ? errorcalc(total, nonerror) : remaindercalc(total, crossedfactors)
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
 
@@ -494,11 +495,11 @@ function totalcalc(observations, N, C)
     AnovaValue(totalname, ss, df)
 end
 
-function factorscalc(cellsums, nfactors, nfactorlevels, N, C, factorlabels)
+function factorscalc(cellsums, nfactors, nfactorlevels, N, C, factornames)
     factorindices = 1:nfactors
     ss = map(i -> sum(sum(cellsums, dims = factorindices[Not(i)]) .^ 2) / (N / nfactorlevels[i]), factorindices) .- C
     df = nfactorlevels .- 1
-    AnovaFactor.(factorlabels, ss, df)
+    AnovaFactor.(factornames, ss, df)
 end
 
 function cellscalc(cellsums, nreplicates, ncells, C)
@@ -507,10 +508,16 @@ function cellscalc(cellsums, nreplicates, ncells, C)
     AnovaValue(cellsname, ss, df)
 end
 
-function errorcalc(name, total, nonerror)
+function errorcalc(total, nonerror)
     ss = total.ss - nonerror.ss
     df = total.df - nonerror.df
-    AnovaFactor(name, ss, df)
+    AnovaFactor(errorname, ss, df)
+end
+
+function remaindercalc(total, factors)
+    ss = total.ss - sum(f -> f.ss, factors)
+    df = total.df - sum(f -> f.df, factors)
+    AnovaFactor(remaindername, ss, df)
 end
 
 function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)

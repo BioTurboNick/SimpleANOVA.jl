@@ -17,6 +17,7 @@ struct InvertedIndex{T}
 end
 const Not = InvertedIndex
 
+import Base.trues
 # This is a little tricky because trues isn't indices-aware, but we also don't
 # want to use fill(true) in the 1-indexed case since we want to favor BitArrays
 @inline trues(tup::Tuple{Vararg{Base.OneTo}}) = Base.trues(map(Base.unsafe_length, tup))
