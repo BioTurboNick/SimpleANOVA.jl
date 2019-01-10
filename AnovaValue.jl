@@ -16,8 +16,3 @@ struct AnovaValue <: AnovaEffect
 end
 
 AnovaValue(ss, df) = AnovaValue("", ss, df)
-
-import Base.show
-function show(io::IO, x::AnovaValue)
-    println(io, "$(x.name)    $(round(x.ss, sigdigits = 5))    $(round(x.df, sigdigits = 2))")
-end

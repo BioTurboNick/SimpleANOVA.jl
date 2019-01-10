@@ -312,9 +312,9 @@ N-way fixed-effects ANOVA with replicates in vectors: anova(observations)
 
 N-way fixed-effects ANOVA with replicates in first dimension: anova(observations, [replicates])
 
-2-way ANOVA with Factor 1 random and Factor B fixed with replicates in vectors: anova(observations, [random])
+2-way ANOVA with Factor A random and Factor B fixed with replicates in vectors: anova(observations, [random])
 
-2-way ANOVA with Factor 1 fixed and Factor B random with replicates in vectors: anova(observations, [fixed, random])
+2-way ANOVA with Factor A fixed and Factor B random with replicates in vectors: anova(observations, [fixed, random])
 
 2-way fixed-effects ANOVA with 2 random nested factors with replicates in first dimension:
 anova(observations, [replicates, nested, nested])
@@ -332,7 +332,6 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
 
     if isempty(factornames)
         factornames = ["A", "B", "C", "D", "E", "F"][1:(ndims(observations) - (firstlevelreplicates ? 1 : 0))]
-        reverse!(factornames)
     end
 
     validate(factortypes, ndims(observations))
@@ -424,7 +423,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
 
     nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
-    error = nnestedfactors > 0 || nreplicates > 1 ? errorcalc(total, nonerror) : remaindercalc(total, crossedfactors)
+    error = nnestedfactors > 0 || nreplicates > 1 ? errorcalc(total, nonerror) : remaindercalc(total, [crossedfactors; interactions[1:end-1]])
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
 

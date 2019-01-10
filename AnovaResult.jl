@@ -25,8 +25,3 @@ struct AnovaResult <: AnovaEffect
 end
 
 AnovaResult(factor, f, p) = AnovaResult(factor.name, factor.ss, factor.df, factor.ms, f, p)
-
-import Base.show
-function show(io::IO, x::AnovaResult)
-    println(io, "$(x.name)    $(round(x.ss, sigdigits = 5))    $(round(x.df, sigdigits = 2))    $(round(x.ms, sigdigits = 5))    $(round(x.f, sigdigits = 3))    $(round(x.p, sigdigits = 3))")
-end

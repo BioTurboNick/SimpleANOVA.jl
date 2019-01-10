@@ -19,8 +19,3 @@ struct AnovaFactor <: AnovaEffect
 end
 
 AnovaFactor(name, ss, df) = AnovaFactor(name, ss, df, ss / df)
-
-import Base.show
-function show(io::IO, x::AnovaFactor)
-    println(io, "$(x.name)    $(round(x.ss, sigdigits = 5))    $(round(x.df, sigdigits = 2))    $(round(x.ms, sigdigits = 5))")
-end
