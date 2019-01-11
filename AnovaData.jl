@@ -21,7 +21,12 @@ function show(io::IO, ad::AnovaData)
     f = [e isa AnovaResult ? e.f |> compactshow : "" for e ∈ ad.effects]
     p = [e isa AnovaResult ? e.p |> compactshow : "" for e ∈ ad.effects]
 
-    columnwidths = [length.(values) |> maximum for values ∈ [rownames, ss, df, ms, f, p]]
+    columnwidths = [length.(values) |> maximum for values ∈ [[colnames[1]; rownames],
+                                                             [colnames[2]; ss],
+                                                             [colnames[3]; df],
+                                                             [colnames[4]; ms],
+                                                             [colnames[5]; f],
+                                                             [colnames[6]; p]]]
     columnwidths[2:end] .+= 2
 
     headerrow = join(lpad.(colnames, columnwidths))
