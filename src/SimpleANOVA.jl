@@ -1,7 +1,6 @@
-module SimpleAnova
+module SimpleANOVA
 
-using Statistics
-using Distributions
+using Statistics, Distributions
 include("InvertedIndices.jl")
 include("AnovaEffect.jl")
 include("AnovaValue.jl")
@@ -14,9 +13,6 @@ const totalname = "Total"
 const cellsname = "Cells"
 const errorname = "Error"
 const remaindername = "Remainder"
-
-
-# need to figure out factor ordering
 
 # It might be even simpler to assume the first level is replicates, and force user to specify if not.
 # Likely more common that a user would have replicates than not. And if it was a nested factor instead,
@@ -389,6 +385,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     end
 end
 
+#=
 function anova(observations::AbstractVector{<:Number}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[])
     # take a vector of observations and a vector containing a vector for each factor assigning the observations to a factor level of that factor.
 
@@ -401,6 +398,7 @@ function anova(observations::AbstractVector{<:Number}, factorassignments::Abstra
     # extract data from DataFame, place into matrix, and then proceed
     anova(observations, factorassignments, factortypes, factornames)
 end
+=#
 
 function validate(factortypes::Vector{FactorType}, ndims; noreplicates = false)
     length(factortypes) == ndims || throw(ErrorException("factortypes must have an entry for each factor."))
