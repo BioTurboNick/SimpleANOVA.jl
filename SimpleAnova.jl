@@ -442,14 +442,18 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     # drop least significant test if nreplicates == 1; either the lowest interaction level, or lowest nesting level if present
     if nreplicates == 1
-        pop!(numerators)
+        droppedfactor = pop!(numerators)
         pop!(denominators)
     end
 
     # perform test
-    results = ftest.(numerators, denominators) # need to order them from highest to lowest
+    results = ftest.(numerators, denominators)
 
-    AnovaData([total; results; error])
+    data = AnovaData([total; results])
+    nreplicates > 1 || push!(data.effects, droppedfactor)
+    push!(data.effects, error)
+
+    return data
 end
 
 function anovasubjectskernel()

@@ -33,9 +33,9 @@ function show(io::IO, ad::AnovaData)
             lpad(f[i], columnwidths[5]) *
             lpad(p[i], columnwidths[6]) for i ∈ 1:nrows]
 
-    println(io, "")
+    println(io)
     println(io, "Analysis of Variance Results")
-    println(io, "")
+    println(io)
     println(io, headerrow)
     println(io, separator)
     foreach(i -> println(io, rows[i]), 1:length(rows))
