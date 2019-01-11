@@ -1,0 +1,5 @@
+language: julia
+ - 1.0
+ - 0.7
+
+codecov: true
