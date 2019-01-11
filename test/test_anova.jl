@@ -13,7 +13,7 @@
 
             results = anova(observations)
 
-            @test all(expected .=≈ results.effects)
+            @test all(expected .≈ results.effects)
         end
 
         @testset "Replicate First Dimension" begin
@@ -25,7 +25,7 @@
 
             results = anova(observations)
 
-            @test all(expected .≈= results.effects)
+            @test all(expected .≈ results.effects)
         end
     end
 
