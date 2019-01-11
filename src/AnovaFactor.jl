@@ -19,3 +19,10 @@ struct AnovaFactor <: AnovaEffect
 end
 
 AnovaFactor(name, ss, df) = AnovaFactor(name, ss, df, ss / df)
+
+import Base.isapprox
+isapprox(x::AnovaFactor, y::AnovaFactor) =
+    x.name == y.name &&
+    x.ss ≈ y.ss &&
+    x.df == y.df &&
+    x.ms ≈ y.ms

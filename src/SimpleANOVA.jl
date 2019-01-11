@@ -312,32 +312,36 @@ Output: `AnovaData` structure containing the test results for each factor.
 Examples:
 N-way fixed-effects ANOVA with replicates in vectors: anova(observations)
 
-N-way fixed-effects ANOVA with replicates in first dimension: anova(observations, [replicates])
+N-way fixed-effects ANOVA with replicates in first dimension: anova(observations)
+
+N-way fixed-effects ANOVA without replicates in first dimension: anova(observations, replicates = false)
 
 2-way ANOVA with Factor A random and Factor B fixed with replicates in vectors: anova(observations, [random])
 
 2-way ANOVA with Factor A fixed and Factor B random with replicates in vectors: anova(observations, [fixed, random])
 
 2-way fixed-effects ANOVA with 2 random nested factors with replicates in first dimension:
-anova(observations, [replicates, nested, nested])
+anova(observations, [nested, nested])
 """
-function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[], withinsubjects = false) where {T <: Union{Number, AbstractVector{<:Number}}}
+function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]; hasreplicates = true, withinsubjects = false) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
 
-    # if empty, defaults to assuming ndims = nfactors and all factors are fixed
-    if isempty(factortypes) || length(factortypes) < ndims(observations)
+    firstlevelreplicates = eltype(observations) <: Number ? hasreplicates : false
+    nfactors = ndims(observations) - (firstlevelreplicates ? 1 : 0)
+
+    validate(factortypes, factornames, nfactors)
+
+    # defaults to assuming all unspecified factors are fixed
+    if length(factortypes) < ndims(observations)
         nremaining = ndims(observations) - length(factortypes)
         append!(factortypes, repeat([fixed], nremaining))
     end
 
-    firstlevelreplicates = first(factortypes) == replicates
-
+    # automatically assigns alphabetical names if not provided.
     if isempty(factornames)
-        factornames = ["A", "B", "C", "D", "E", "F"][1:(ndims(observations) - (firstlevelreplicates ? 1 : 0))]
+        factornames = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"][1:nfactors]
         reverse!(factornames)
     end
-
-    validate(factortypes, ndims(observations))
 
     # for randomized blocks, only real differences is that "blocks" factor isn't tested. Option?
     # for repeated measures, only difference is that "subjects" factor isn't tested. Option?
@@ -368,7 +372,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     nnestedfactors = count(f -> f == nested, factortypes)
     crossedfactortypes = filter(f -> f ∈ [fixed, random], factortypes)
     ncrossedfactors = length(crossedfactortypes)
-    ncrossedfactors < 4 || throw(ErrorException("ANOVA with 4 or more crossed factors is not supported."))
+    ncrossedfactors < 4 || error("ANOVA with 4 or more crossed factors is not supported.")
     nreplicates = firstlevelreplicates ? size(observations, 1) : length(observations[1])
     firstlevelreplicates || all(c -> length(c) == nreplicates, observations) || throw(ErrorException("All cells must have the same number of replicates."))
     ncells = Int.(length(observations) / (firstlevelreplicates ? nreplicates : 1))
@@ -378,11 +382,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     crossedfactornames = factornames[nonreplicatefactortypes .≠ nested]
     nestedfactornames = factornames[nonreplicatefactortypes .== nested]
 
-    if withinsubjects
-        anovasubjectskernel(observations, nreplicates)
-    else
-        anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
-    end
+    anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
 
 #=
@@ -400,15 +400,12 @@ function anova(observations::AbstractVector{<:Number}, factorassignments::Abstra
 end
 =#
 
-function validate(factortypes::Vector{FactorType}, ndims; noreplicates = false)
-    length(factortypes) == ndims || throw(ErrorException("factortypes must have an entry for each factor."))
-    if noreplicates
-        replicates ∉ factortypes || throw(ErrorException("replicates are not valid for this structure."))
-    else
-        replicates ∉ factortypes || first(factortypes) == replicates || throw(ErrorException("replicates must be the first entry if present"))
-    end
-    nonreplicatefactortypes = filter(t -> t ≠ replicates, factortypes)
-    nested ∉ factortypes || nonreplicatefactortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || throw(ErrorException("nested entries must come before crossed factors"))
+function validate(factortypes::Vector{FactorType}, nfactors)
+    length(factortypes) == nfactors || error("factortypes must have an entry for each factor.")
+    nested ∉ factortypes || nonreplicatefactortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || error("nested entries must come before crossed factors")
+
+    !isempty(factornames) || nfactors < 26 || error("Can only automatically name up to 26 factors. Provide names explicitly.")
+    length(factornames) == nfactors || error("factornames must have an entry for each factor.")
 end
 
 function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
@@ -454,6 +451,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     return data
 end
 
+#=
 function anovasubjectskernel()
     N = ncells * nreplicates
     nfactors = nnestedfactors + ncrossedfactors
@@ -482,6 +480,7 @@ function anovasubjectskernel()
     # test for B; B / withinsubjectinteractions
     # test for interaction; interaction / withinsubjectinteraction
 end
+=#
 
 function sumfirstdim(observations::T) where {T <: AbstractArray{<:AbstractVector}}
     map(sumfirstdim, observations)
@@ -715,6 +714,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-export anova, AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, FactorType
+export anova, AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, FactorType, fixed, random, nested
 
 end

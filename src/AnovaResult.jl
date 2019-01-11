@@ -25,3 +25,12 @@ struct AnovaResult <: AnovaEffect
 end
 
 AnovaResult(factor, f, p) = AnovaResult(factor.name, factor.ss, factor.df, factor.ms, f, p)
+
+import Base.isapprox
+isapprox(x::AnovaResult, y::AnovaResult) =
+    x.name == y.name &&
+    x.ss ≈ y.ss &&
+    x.df == y.df &&
+    x.ms ≈ y.ms &&
+    x.f ≈ y.f &&
+    x.p ≈ y.p
