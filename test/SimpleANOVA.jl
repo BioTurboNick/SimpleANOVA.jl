@@ -206,7 +206,7 @@ end
         end
     end
 
-    @testset "All Random" begin#################################
+    @testset "All Random" begin
         expected = [AnovaValue(     "Total", 30.355,       71),
                     AnovaResult(        "A",  1.8175,       2,  0.90875,      4.1754946,   0.179725175),
                     AnovaResult(        "B", 24.655833,     2, 12.3279167,   40.036536,    0.0022084069),
@@ -250,7 +250,7 @@ end
         end
     end
 
-    @testset "2 random, 1 fixed" begin################################
+    @testset "2 random, 1 fixed" begin
         expected = [AnovaValue(     "Total", 30.355,       71),
                     AnovaResult(        "A",  1.8175,       2,  0.90875,      4.1754946,    0.179725175),
                     AnovaResult(        "B", 24.655833,     2, 12.3279167,   44.760968,    0.001829334),
