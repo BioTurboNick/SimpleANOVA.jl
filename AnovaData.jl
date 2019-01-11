@@ -21,22 +21,31 @@ function show(io::IO, ad::AnovaData)
     f = [e isa AnovaResult ? e.f |> compactshow : "" for e ∈ ad.effects]
     p = [e isa AnovaResult ? e.p |> compactshow : "" for e ∈ ad.effects]
 
-    columnwidths = [length.(values) |> maximum for values ∈ [[colnames[1]; rownames],
-                                                             [colnames[2]; ss],
-                                                             [colnames[3]; df],
-                                                             [colnames[4]; ms],
-                                                             [colnames[5]; f],
-                                                             [colnames[6]; p]]]
-    columnwidths[2:end] .+= 2
+    ndec = [length.(last.(split.(values, "."))) for values ∈ [ss, ms, f, p]]
+    maxndec = maximum.(ndec)
+    rpadding = [maxndec[i] .- ndec[i] for i ∈ 1:4]
 
-    headerrow = join(lpad.(colnames, columnwidths))
-    separator = repeat("-", sum(columnwidths))
-    rows = [lpad(rownames[i], columnwidths[1]) *
-            lpad(ss[i], columnwidths[2]) *
-            lpad(df[i], columnwidths[3]) *
-            lpad(ms[i], columnwidths[4]) *
-            lpad(f[i], columnwidths[5]) *
-            lpad(p[i], columnwidths[6]) for i ∈ 1:nrows]
+    ss = [rpad(ss[i], rpadding[1][i] + length(ss[i])) for i ∈ 1:nrows]
+    ms = [rpad(ms[i], rpadding[2][i] + length(ms[i])) for i ∈ 1:nrows]
+    f = [rpad(f[i], rpadding[3][i] + length(f[i])) for i ∈ 1:nrows]
+    p = [rpad(p[i], rpadding[4][i] + length(p[i])) for i ∈ 1:nrows]
+
+    colwidths = [length.(values) |> maximum for values ∈ [[colnames[1]; rownames],
+                                                          [colnames[2]; ss],
+                                                          [colnames[3]; df],
+                                                          [colnames[4]; ms],
+                                                          [colnames[5]; f],
+                                                          [colnames[6]; p]]]
+    colwidths[2:end] .+= 2
+
+    headerrow = join(lpad.(colnames, colwidths))
+    separator = repeat("-", sum(colwidths))
+    rows = [lpad(rownames[i], colwidths[1]) *
+            lpad(ss[i], colwidths[2]) *
+            lpad(df[i], colwidths[3]) *
+            lpad(ms[i], colwidths[4]) *
+            lpad(f[i], colwidths[5]) *
+            lpad(p[i], colwidths[6]) for i ∈ 1:nrows]
 
     println(io)
     println(io, "Analysis of Variance Results")

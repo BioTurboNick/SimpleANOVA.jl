@@ -450,7 +450,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     results = ftest.(numerators, denominators)
 
     data = AnovaData([total; results])
-    nreplicates > 1 || push!(data.effects, droppedfactor)
+    nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     push!(data.effects, error)
 
     return data
