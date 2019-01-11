@@ -426,11 +426,13 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     cells = cellscalc(cellsums, nreplicates, ncells, C)
 
     crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames)
-    reverse!(crossedfactors)
+    #=reverse!(crossedfactors)
     reverse!(crossedfactortypes)
+    reverse!(ncrossedfactorlevels)
+    reverse!(crossedfactornames)=#
     interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames)
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
-    reverse!(nestedfactors)
+    #reverse!(nestedfactors)
 
     nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
     error = nnestedfactors > 0 || nreplicates > 1 ? errorcalc(total, nonerror) : remaindercalc(total, [crossedfactors; interactions[1:end-1]])

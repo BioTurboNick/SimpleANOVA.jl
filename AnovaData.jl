@@ -26,6 +26,7 @@ function show(io::IO, ad::AnovaData)
     columnwidths = [length.(values) |> maximum for values ∈ [rownames, ss, df, ms, f, p]] .+ 2
 
     headerrow = join(lpad.(colnames, columnwidths))
+    separator = repeat("-", sum(columnwidths))
     rows = [lpad(rownames[i], columnwidths[1]) *
             lpad(ss[i], columnwidths[2]) *
             lpad(df[i], columnwidths[3]) *
@@ -34,5 +35,6 @@ function show(io::IO, ad::AnovaData)
             lpad(p[i], columnwidths[6]) for i ∈ 1:nrows]
 
     println(io, headerrow)
+    println(io, separator)
     foreach(i -> println(io, rows[i]), 1:length(rows))
 end
