@@ -16,6 +16,12 @@ const errorname = "Error"
 const remaindername = "Remainder"
 
 
+# need to figure out factor ordering
+
+# It might be even simpler to assume the first level is replicates, and force user to specify if not.
+# Likely more common that a user would have replicates than not. And if it was a nested factor instead,
+# the user would have to specify that.
+
 #=
 Index indicates the value of that factor level. E.g. [3,4] specifies Factor A level 3 and Factor B level 4
 
@@ -332,6 +338,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
 
     if isempty(factornames)
         factornames = ["A", "B", "C", "D", "E", "F"][1:(ndims(observations) - (firstlevelreplicates ? 1 : 0))]
+        reverse!(factornames)
     end
 
     validate(factortypes, ndims(observations))
@@ -419,8 +426,11 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     cells = cellscalc(cellsums, nreplicates, ncells, C)
 
     crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames)
+    reverse!(crossedfactors)
+    reverse!(crossedfactortypes)
     interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames)
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
+    reverse!(nestedfactors)
 
     nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
     error = nnestedfactors > 0 || nreplicates > 1 ? errorcalc(total, nonerror) : remaindercalc(total, [crossedfactors; interactions[1:end-1]])

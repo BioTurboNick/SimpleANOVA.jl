@@ -11,24 +11,28 @@ import Base.show
 function show(io::IO, ad::AnovaData)
     println(io, "Analysis of Variance results")
 
-    colnames = ["SS", "DF", "MS", "F", "p"]
+    colnames = ["Effect", "SS", "DF", "MS", "F", "p"]
     rownames = [e.name for e ∈ ad.effects]
+    nrows = length(ad.effects)
 
-    rownamewidth = max(7, maximum([length(name) for name ∈ rownames])) + 1
-    columnwidth = max(12, maximum([length(name) for name ∈ colnames]))
+    compactshow(x) = sprint(show, x, context=:compact=>true)
 
-    paddedrownames = [rpad(name, rownamewidth) for name ∈ rownames]
+    ss = [e.ss |> compactshow for e ∈ ad.effects]
+    df = [e.df |> Int |> compactshow for e ∈ ad.effects]
+    ms = [typeof(e) ∈ [AnovaFactor, AnovaResult] ? e.ms |> compactshow  : "" for e ∈ ad.effects]
+    f = [e isa AnovaResult ? e.f |> compactshow : "" for e ∈ ad.effects]
+    p = [e isa AnovaResult ? e.p |> compactshow : "" for e ∈ ad.effects]
 
-    compactshow(x) = lpad(sprint(show, x, context=:compact=>true), columnwidth)
+    columnwidths = [length.(values) |> maximum for values ∈ [rownames, ss, df, ms, f, p]] .+ 2
 
-    headerrow = rpad("Effect", rownamewidth) * join(lpad.(colnames, columnwidth))
+    headerrow = join(lpad.(colnames, columnwidths))
+    rows = [lpad(rownames[i], columnwidths[1]) *
+            lpad(ss[i], columnwidths[2]) *
+            lpad(df[i], columnwidths[3]) *
+            lpad(ms[i], columnwidths[4]) *
+            lpad(f[i], columnwidths[5]) *
+            lpad(p[i], columnwidths[6]) for i ∈ 1:nrows]
 
-    rows = [compactshow(e.ss) * compactshow(e.df) *
-            (typeof(e) ∈ [AnovaFactor, AnovaResult] ?
-                compactshow(e.ms) : lpad("", columnwidth)) *
-            (e isa AnovaResult ?
-                compactshow(e.f) * compactshow(e.p) : lpad("", columnwidth) * lpad("", columnwidth)) for e ∈ ad.effects]
-
-   println(io, headerrow)
-   foreach(i -> println(io, paddedrownames[i] * rows[i]), 1:length(rows))
+    println(io, headerrow)
+    foreach(i -> println(io, rows[i]), 1:length(rows))
 end
