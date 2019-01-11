@@ -426,13 +426,10 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     cells = cellscalc(cellsums, nreplicates, ncells, C)
 
     crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames)
-    #=reverse!(crossedfactors)
-    reverse!(crossedfactortypes)
-    reverse!(ncrossedfactorlevels)
-    reverse!(crossedfactornames)=#
     interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames)
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
-    #reverse!(nestedfactors)
+    reverse!(crossedfactors)
+    reverse!(nestedfactors)
 
     nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
     error = nnestedfactors > 0 || nreplicates > 1 ? errorcalc(total, nonerror) : remaindercalc(total, [crossedfactors; interactions[1:end-1]])
@@ -566,7 +563,9 @@ function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, nc
             interactionsmap[(2,3)] = pairwise[2,3]
             interactionsmap[(3,2)] = pairwise[2,3]
             interactionsmap[(1,2,3)] = threewise
-            push!(interactions, interactionsmap[(1,3)], interactionsmap[(2,3)], interactionsmap[(1,2,3)])
+            push!(interactions, interactionsmap[(1,3)], interactionsmap[(2,3)])
+            reverse!(interactions)
+            push!(interactions, interactionsmap[(1,2,3)])
         end
     end
 
@@ -583,7 +582,7 @@ function pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfacto
             ss = sum(sum(nestedsums, dims = otherfactorindexes) .^ 2 ./ (prod(ncrossedfactorlevels[otherfactorindexes]) * prod(nnestedfactorlevels) * nreplicates)) - C - crossedfactors[i].ss - crossedfactors[j].ss
             df = crossedfactors[i].df * crossedfactors[j].df
 
-            pairwise[i,j] = pairwise[j,i] = AnovaFactor("$(crossedfactorlabels[i]) × $(crossedfactorlabels[j])", ss, df)
+            pairwise[i,j] = pairwise[j,i] = AnovaFactor("$(crossedfactorlabels[j]) × $(crossedfactorlabels[i])", ss, df)
         end
     end
     return pairwise
@@ -592,7 +591,7 @@ end
 function threewisecalc(cells, factors, pairwise, crossedfactorlabels)
     ss = cells.ss - sum(f -> f.ss, factors) - pairwise[1,2].ss - pairwise[1,3].ss - pairwise[2,3].ss
     df = prod(f -> f.df, factors)
-    AnovaFactor("$(crossedfactorlabels[1]) × $(crossedfactorlabels[2]) × $(crossedfactorlabels[3])", ss, df)
+    AnovaFactor("$(crossedfactorlabels[3]) × $(crossedfactorlabels[2]) × $(crossedfactorlabels[1])", ss, df)
 end
 
 function nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactorlabels)
