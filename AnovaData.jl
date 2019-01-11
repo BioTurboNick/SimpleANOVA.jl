@@ -9,8 +9,6 @@ end
 
 import Base.show
 function show(io::IO, ad::AnovaData)
-    println(io, "Analysis of Variance results")
-
     colnames = ["Effect", "SS", "DF", "MS", "F", "p"]
     rownames = [e.name for e ∈ ad.effects]
     nrows = length(ad.effects)
@@ -23,7 +21,8 @@ function show(io::IO, ad::AnovaData)
     f = [e isa AnovaResult ? e.f |> compactshow : "" for e ∈ ad.effects]
     p = [e isa AnovaResult ? e.p |> compactshow : "" for e ∈ ad.effects]
 
-    columnwidths = [length.(values) |> maximum for values ∈ [rownames, ss, df, ms, f, p]] .+ 2
+    columnwidths = [length.(values) |> maximum for values ∈ [rownames, ss, df, ms, f, p]]
+    columnwidths[2:end] .+= 2
 
     headerrow = join(lpad.(colnames, columnwidths))
     separator = repeat("-", sum(columnwidths))
@@ -34,6 +33,9 @@ function show(io::IO, ad::AnovaData)
             lpad(f[i], columnwidths[5]) *
             lpad(p[i], columnwidths[6]) for i ∈ 1:nrows]
 
+    println(io, "")
+    println(io, "Analysis of Variance Results")
+    println(io, "")
     println(io, headerrow)
     println(io, separator)
     foreach(i -> println(io, rows[i]), 1:length(rows))

@@ -703,7 +703,7 @@ function threewayinteraction(interaction_ab, interaction_bc, interaction_abc)
 
     ms = interaction_ab.ms + interaction_bc.ms - interaction_abc.ms
     df = ms ^ 2 / (reducedmeansquare(interaction_ab) + reducedmeansquare(interaction_bc) + reducedmeansquare(interaction_abc))
-    AnovaFactor(ms * df, df, ms)
+    AnovaFactor("", ms * df, df, ms)
 end
 
 function ftest(x, y)
