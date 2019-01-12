@@ -1,4 +1,7 @@
 # SimpleANOVA.jl
+
+[![Build Status](https://travis-ci.org/BioTurboNick/SimpleANOVA.jl.svg?branch=master)](https://travis-ci.org/BioTurboNick/SimpleANOVA.jl)
+
 Analysis of Variance for Julia, the old-fashioned way.
 
 This is a basic attempt to get a simple ANOVA implementation for Julia that works with data directly - no linear models.
