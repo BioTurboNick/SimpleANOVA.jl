@@ -479,7 +479,7 @@ function getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbase
         elseif all(f -> f == random, crossedfactortypes)
             crosseddenominators = repeat([interactionsmap[(1,2)]], ncrossedfactors)
         else
-            crosseddenominators = map(f -> f == fixed ? crossedbasedenominator : interactionsmap[(1,2)], crossedfactortypes)
+            crosseddenominators = map(f -> f == fixed ? interactionsmap[(1,2)] : crossedbasedenominator, crossedfactortypes)
         end
 
         denominators = [crosseddenominators; crossedbasedenominator]
@@ -558,6 +558,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-export anova, AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, FactorType, fixed, random, nested
+export anova, AnovaData, AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, FactorType, fixed, random, nested
 
 end
