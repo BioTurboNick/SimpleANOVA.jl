@@ -41,7 +41,7 @@
 
         @testset "Fixed-effects (Model I)" begin
             expected = [AnovaValue( "Total", 1827.6975, 19),
-                        AnovaResult(    "A",   70.3125,  1,   70.3215,  3.0706495,  0.098856175),
+                        AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175),
                         AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
                         AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
                         AnovaFactor("Error",  366.372,  16,   22.89825)]
@@ -59,7 +59,7 @@
 
         @testset "Random-effects (Model II)" begin
             expected = [AnovaValue( "Total", 1827.6975, 19),
-                        AnovaResult(    "A",   70.3125,  1,   70.3215,  14.3480257,  0.16431864),
+                        AnovaResult(    "A",   70.3125,  1,   70.3125,  14.3480257,  0.16431864),
                         AnovaResult(    "B", 1386.1125,  1, 1386.1125, 282.85124,    0.037808553),
                         AnovaResult("A × B",    4.9005,  1,    4.9005,   0.21401199, 0.64987001),
                         AnovaFactor("Error",  366.372,  16,   22.89825)]
@@ -77,8 +77,8 @@
 
         @testset "Mixed-effects (Model III)" begin
             expected = [AnovaValue( "Total", 1827.6975, 19),
-                        AnovaResult(    "A",   70.3125,  1,   70.3215, 14.3480257,  0.164318644),
-                        AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
+                        AnovaResult(    "A",   70.3125,  1,   70.3125,   3.0706495, 0.098856175),
+                        AnovaResult(    "B", 1386.1125,  1, 1386.1125, 282.85124,   0.037808553),
                         AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
                         AnovaFactor("Error",  366.372,  16,   22.89825)]
 
@@ -123,7 +123,7 @@
             end
 
             @testset "Replicate First Dimension" begin
-                results = anova(observations2)
+                results = anova(observations2, hasreplicates = false)
                 @test all(expected .≈ results.effects)
             end
         end
@@ -135,7 +135,7 @@
             end
 
             @testset "Replicate First Dimension" begin
-                results = anova(observations2, [random, random])
+                results = anova(observations2, [random, random], hasreplicates = false)
                 @test all(expected .≈ results.effects)
             end
         end
@@ -147,7 +147,7 @@
             end
 
             @testset "Replicate First Dimension" begin
-                results = anova(observations2, [random])
+                results = anova(observations2, [random], hasreplicates = false)
                 @test all(expected .≈ results.effects)
             end
         end
