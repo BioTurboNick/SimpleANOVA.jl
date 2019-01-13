@@ -182,6 +182,90 @@
         end
     end
 
+    @testset "2-way ANOVA with 1 nested factor, no replicates" begin
+        observations1 = Array{Vector{Float64}, 3}(undef, 5, 2, 2)
+        observations1[1,1,1] = [16.5]
+        observations1[2,1,1] = [18.4]
+        observations1[3,1,1] = [12.7]
+        observations1[4,1,1] = [14.0]
+        observations1[5,1,1] = [12.8]
+        observations1[1,2,1] = [39.1]
+        observations1[2,2,1] = [26.2]
+        observations1[3,2,1] = [21.3]
+        observations1[4,2,1] = [35.8]
+        observations1[5,2,1] = [40.2]
+        observations1[1,1,2] = [14.5]
+        observations1[2,1,2] = [11.0]
+        observations1[3,1,2] = [10.8]
+        observations1[4,1,2] = [14.3]
+        observations1[5,1,2] = [10.0]
+        observations1[1,2,2] = [32.0]
+        observations1[2,2,2] = [23.8]
+        observations1[3,2,2] = [28.8]
+        observations1[4,2,2] = [25.0]
+        observations1[5,2,2] = [29.3]
+
+        observations2 = cat(hcat([16.5, 18.4, 12.7, 14.0, 12.8], [39.1, 26.2, 21.3, 35.8, 40.2]),
+                            hcat([14.5, 11.0, 10.8, 14.3, 10.0], [32.0, 23.8, 28.8, 25.0, 29.3]), dims = 3)
+
+        @testset "Fixed-effects (Model I)" begin
+           expected = [AnovaValue( "Total", 1827.6975, 19),
+                       AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175),
+                       AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
+                       AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
+                       AnovaFactor(    "C",  366.372,  16,   22.89825),
+                       AnovaValue( "Error",    0,       0)]
+
+           @testset "Replicate Vectors" begin
+               results = anova(observations1, [nested])
+               @test all(expected .≈ results.effects)
+           end
+
+           @testset "Replicate First Dimension" begin
+               results = anova(observations2, [nested], hasreplicates = false)
+               @test all(expected .≈ results.effects)
+           end
+        end
+
+        @testset "Random-effects (Model II)" begin
+           expected = [AnovaValue( "Total", 1827.6975, 19),
+                       AnovaResult(    "A",   70.3125,  1,   70.3125,  14.3480257,  0.16431864),
+                       AnovaResult(    "B", 1386.1125,  1, 1386.1125, 282.85124,    0.037808553),
+                       AnovaResult("A × B",    4.9005,  1,    4.9005,   0.21401199, 0.64987001),
+                       AnovaFactor(    "C",  366.372,  16,   22.89825),
+                       AnovaValue( "Error",    0,       0)]
+
+           @testset "Replicate Vectors" begin
+               results = anova(observations1, [nested, random, random])
+               @test all(expected .≈ results.effects)
+           end
+
+           @testset "Replicate First Dimension" begin
+               results = anova(observations2, [nested, random, random], hasreplicates = false)
+               @test all(expected .≈ results.effects)
+           end
+        end
+
+        @testset "Mixed-effects (Model III)" begin
+           expected = [AnovaValue( "Total", 1827.6975, 19),
+                       AnovaResult(    "A",   70.3125,  1,   70.3125, 14.3480257,  0.16431864),
+                       AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
+                       AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
+                       AnovaFactor(    "C",  366.372,  16,   22.89825),
+                       AnovaValue( "Error",    0,       0)]
+
+           @testset "Replicate Vectors" begin
+               results = anova(observations1, [nested, random])
+               @test all(expected .≈ results.effects)
+           end
+
+           @testset "Replicate First Dimension" begin
+               results = anova(observations2, [nested, random], hasreplicates = false)
+               @test all(expected .≈ results.effects)
+           end
+        end
+    end
+
     @testset "3-way ANOVA" begin
         observations1 = Array{Vector{Float64}, 3}(undef, 2, 3, 3)
         observations1[1,1,1] = [1.9, 1.8, 1.6, 1.4]

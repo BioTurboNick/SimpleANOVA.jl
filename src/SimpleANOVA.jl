@@ -234,8 +234,12 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     reverse!(crossedfactors)
     reverse!(nestedfactors)
 
-    nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
-    error = nnestedfactors > 0 || nreplicates > 1 ? errorcalc(total, nonerror) : remaindercalc(total, [crossedfactors; interactions[1:end-1]])
+    if nnestedfactors > 0 || nreplicates > 1
+        nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
+        error = errorcalc(total, nonerror)
+    else
+        error = remaindercalc(total, [crossedfactors; interactions[1:end-1]])
+    end
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
 
@@ -328,7 +332,7 @@ end
 function errorcalc(total, nonerror)
     ss = total.ss - nonerror.ss
     df = total.df - nonerror.df
-    AnovaFactor(errorname, ss, df)
+    df > 0  ? AnovaFactor(errorname, ss, df) : AnovaValue(errorname, ss, df)
 end
 
 function remaindercalc(total, factors)
