@@ -25,4 +25,4 @@ isapprox(x::AnovaFactor, y::AnovaFactor) =
     x.name == y.name &&
     x.ss ≈ y.ss &&
     x.df == y.df &&
-    x.ms ≈ y.ms
+    isnan(x.ms) && isnan(y.ms) || x.ms ≈ y.ms
