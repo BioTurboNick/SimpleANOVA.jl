@@ -168,7 +168,7 @@
             observations[2,2] = [109, 108]
             observations[2,3] = [105, 107]
 
-            results = anova(observations)
+            results = anova(observations, [nested])
             @test all(expected .≈ results.effects)
         end
 
@@ -177,7 +177,7 @@
                                hcat([108, 110], [109, 108]),
                                hcat([104, 106], [105, 107]), dims = 3)
 
-            results = anova(observations, hasreplicates = false)
+            results = anova(observations, [nested])
             @test all(expected .≈ results.effects)
         end
     end
