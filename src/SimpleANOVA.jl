@@ -225,14 +225,12 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     C = sum(cellsums) ^ 2 / N
     total = totalcalc(observations, N, C)
     amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
-
     cells = cellscalc(cellsums, nreplicates, ncells, C)
 
     crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames)
     interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames)
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
     reverse!(crossedfactors)
-    reverse!(nestedfactors)
 
     if nnestedfactors > 0 || nreplicates > 1
         nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
@@ -242,9 +240,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     end
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
-
     crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[end] : error;
-
     denominators = getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbasedenominator, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)
 
     # drop least significant test if nreplicates == 1; either the lowest interaction level, or lowest nesting level if present
@@ -351,12 +347,10 @@ function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplic
         ss = sum(nestedsums .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C
         df = prod(nupperfactorlevels) - 1
         amongallnested[i] = AnovaValue(ss, df)
-
         nlowerfactorlevels = nfactorlevels[1:i]
         nupperfactorlevels = nfactorlevels[(i+1):end]
         nestedsums = sumfirstdim(nestedsums)
     end
-
     amongallnested, nestedsums, nupperfactorlevels, nlowerfactorlevels
 end
 
@@ -368,7 +362,6 @@ function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, nc
         interactionsmap[(1,2)] = pairwise[1,2]
         interactionsmap[(2,1)] = pairwise[1,2]
         push!(interactions, interactionsmap[(1,2)])
-
         if ncrossedfactors > 2
             threewise = threewisecalc(cells, crossedfactors, pairwise, crossedfactorlabels)
             interactionsmap[(1,3)] = pairwise[1,3]
@@ -381,7 +374,6 @@ function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, nc
             push!(interactions, interactionsmap[(1,2,3)])
         end
     end
-
     return interactions, interactionsmap
 end
 
@@ -391,10 +383,8 @@ function pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfacto
     for i ∈ factorindexes
         for j ∈ (i+1):ncrossedfactors
             otherfactorindexes = intersect(factorindexes[Not(i)], factorindexes[Not(j)])
-
             ss = sum(sum(nestedsums, dims = otherfactorindexes) .^ 2 ./ (prod(ncrossedfactorlevels[otherfactorindexes]) * prod(nnestedfactorlevels) * nreplicates)) - C - crossedfactors[i].ss - crossedfactors[j].ss
             df = crossedfactors[i].df * crossedfactors[j].df
-
             pairwise[i,j] = pairwise[j,i] = AnovaFactor("$(crossedfactorlabels[j]) × $(crossedfactorlabels[i])", ss, df)
         end
     end
@@ -413,10 +403,13 @@ function nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, inter
         otherfactors = [crossedfactors; interactions]
         otherss = sum(f -> f.ss, otherfactors)
         otherdf = sum(f -> f.df, otherfactors)
-
-        ss = map(f -> f.ss - otherss, amongallnested)
-        df = map(f -> f.df - otherdf, amongallnested)
-        append!(nestedfactors, AnovaFactor.(nestedfactorlabels, ss, df))
+        for i ∈ nnestedfactors:-1:1
+            ss = amongallnested[i].ss - otherss
+            df = amongallnested[i].df - otherdf
+            otherss += ss
+            otherdf += df
+            push!(nestedfactors, AnovaFactor(nestedfactorlabels[i], ss, df))
+        end
     end
     return nestedfactors
 end
@@ -501,10 +494,10 @@ function getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbase
     # determine correct denominators for nested factors
     if nnestedfactors > 0
         nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
-        nesteddenominators[1] = error
-        for i ∈ 2:nnestedfactors
-            nesteddenominators[i] = nestedfactors[i - 1]
+        for i ∈ 1:(nnestedfactors - 1)
+            nesteddenominators[i] = nestedfactors[i + 1]
         end
+        nesteddenominators[end] = error
         append!(denominators, nesteddenominators)
     end
 

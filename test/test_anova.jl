@@ -182,6 +182,46 @@
         end
     end
 
+    @testset "1-way ANOVA with 2 nested factors" begin
+        expected = [AnovaValue( "Total", 101.58753,   47),
+                    AnovaResult(    "A",   7.5108875,  2, 3.7554438, 2.00918315, 0.21481422),
+                    AnovaResult(    "B",   5.5708812,  3, 1.8569604, 0.99348408, 0.45717102),
+                    AnovaResult(    "C",  11.2148375,  6, 1.8691396, 0.87059412, 0.52587983),
+                    AnovaFactor("Error",  77.290925,  36, 2.14697014)]
+
+        @testset "Replicate Vectors" begin
+            observations = Array{Vector{Float64}, 3}(undef, 2, 2, 3)
+            observations[1,1,1] = [3.17, 4.41, 1.81, 1.74]
+            observations[2,1,1] = [2.81, 4.98, 2.62, 2.53]
+            observations[1,2,1] = [3.0,  3.02, 4.73, 1.77]
+            observations[2,2,1] = [4.13, 0.71, 3.18, 3.34]
+            observations[1,1,2] = [2.42, 1.28, 1.4,  2.56]
+            observations[2,1,2] = [1.26, 1.08, 1.42, 0.85]
+            observations[1,2,2] = [0.36, 0.35, 2.64, 3.75]
+            observations[2,2,2] = [3.86, 2.53, 3.97, 3.03]
+            observations[1,1,3] = [5.24, 2.24, 0.18, 3.06]
+            observations[2,1,3] = [4.04, 4.14, 0.33, 4.61]
+            observations[1,2,3] = [6.06, 1.61, 2.25, 2.44]
+            observations[2,2,3] = [0.02, 3.95, 0.87, 2.0]
+
+
+            results = anova(observations, [nested, nested])
+            @test all(expected .≈ results.effects)
+        end
+
+        @testset "Replicate First Dimension" begin
+            observations = cat(cat(hcat([3.17, 4.41, 1.81, 1.74], [2.81, 4.98, 2.62, 2.53]),
+                                   hcat([3.0,  3.02, 4.73, 1.77], [4.13, 0.71, 3.18, 3.34]), dims = 3),
+                               cat(hcat([2.42, 1.28, 1.4,  2.56], [1.26, 1.08, 1.42, 0.85]),
+                                   hcat([0.36, 0.35, 2.64, 3.75], [3.86, 2.53, 3.97, 3.03]), dims = 3),
+                               cat(hcat([5.24, 2.24, 0.18, 3.06], [4.04, 4.14, 0.33, 4.61]),
+                                   hcat([6.06, 1.61, 2.25, 2.44], [0.02, 3.95, 0.87, 2.0]), dims = 3), dims = 4)
+
+            results = anova(observations, [nested, nested])
+            @test all(expected .≈ results.effects)
+        end
+    end
+
     @testset "2-way ANOVA with 1 nested factor, no replicates" begin
         observations1 = Array{Vector{Float64}, 3}(undef, 5, 2, 2)
         observations1[1,1,1] = [16.5]
