@@ -160,13 +160,13 @@
                     AnovaFactor("Error",  9.0,       6,  1.5)]
 
         @testset "Replicate Vectors" begin
-            observations1 = Array{Vector{Float64}, 2}(undef, 2, 3)
-            observations1[1,1] = [102, 104]
-            observations1[1,2] = [108, 110]
-            observations1[1,3] = [104, 106]
-            observations1[2,1] = [103, 104]
-            observations1[2,2] = [109, 108]
-            observations1[2,3] = [105, 107]
+            observations = Array{Vector{Float64}, 2}(undef, 2, 3)
+            observations[1,1] = [102, 104]
+            observations[1,2] = [108, 110]
+            observations[1,3] = [104, 106]
+            observations[2,1] = [103, 104]
+            observations[2,2] = [109, 108]
+            observations[2,3] = [105, 107]
 
             results = anova(observations)
             @test all(expected .≈ results.effects)
