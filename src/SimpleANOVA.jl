@@ -332,7 +332,7 @@ end
 function errorcalc(total, nonerror)
     ss = total.ss - nonerror.ss
     df = total.df - nonerror.df
-    df > 0  ? AnovaFactor(errorname, ss, df) : AnovaValue(errorname, ss, df)
+    AnovaFactor(errorname, ss, df)
 end
 
 function remaindercalc(total, factors)

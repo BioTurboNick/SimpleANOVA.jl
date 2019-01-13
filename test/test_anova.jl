@@ -214,7 +214,7 @@
                        AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
                        AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
                        AnovaFactor(    "C",  366.372,  16,   22.89825),
-                       AnovaValue( "Error",    0,       0)]
+                       AnovaFactor( "Error",    0,       0,  NaN)]
 
            @testset "Replicate Vectors" begin
                results = anova(observations1, [nested])
@@ -233,7 +233,7 @@
                        AnovaResult(    "B", 1386.1125,  1, 1386.1125, 282.85124,    0.037808553),
                        AnovaResult("A × B",    4.9005,  1,    4.9005,   0.21401199, 0.64987001),
                        AnovaFactor(    "C",  366.372,  16,   22.89825),
-                       AnovaValue( "Error",    0,       0)]
+                       AnovaFactor( "Error",    0,       0,  NaN)]
 
            @testset "Replicate Vectors" begin
                results = anova(observations1, [nested, random, random])
@@ -252,7 +252,7 @@
                        AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
                        AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
                        AnovaFactor(    "C",  366.372,  16,   22.89825),
-                       AnovaValue( "Error",    0,       0)]
+                       AnovaFactor( "Error",    0,       0,  NaN)]
 
            @testset "Replicate Vectors" begin
                results = anova(observations1, [nested, random])
