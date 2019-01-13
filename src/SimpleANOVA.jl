@@ -23,42 +23,6 @@ Index indicates the value of that factor level. E.g. [3,4] specifies Factor A le
 
 Examples
 
-
-1-way ANOVA with 1 nested factor, replicates
-
-Specified in Array with cells nested as vectors
-observations = Array{Vector{Float64}, 2}(undef, 2, 3)
-observations[1,1] = [102, 104]
-observations[1,2] = [108, 110]
-observations[1,3] = [104, 106]
-observations[2,1] = [103, 104]
-observations[2,2] = [109, 108]
-observations[2,3] = [105, 107]
-
--or-
-
-Specified in multidimensional array with 1st dimension as replicate
-observations = cat(hcat([102, 104], [103, 104]),
-                   hcat([108, 110], [109, 108]),
-                   hcat([104, 106], [105, 107]), dims = 3)
-    Note: must specify that first dimension is a replicate
-
-                        Factor B
-                          1   2   3
-Nested Factor A     1   102 108 104
-                        104 110 106
-
-                    2   103 109 105
-                        104 108 107
-
-                      SS    DF    MS     F
-Total               71.7    11
-Across Factor A     62.7     5
-Factor B            61.2     2  30.6
-Factor A             1.5     3   0.5
-Error                9.0     6   1.5
-
-
 2-way ANOVA with 1 nested factor, no replicates
 Specified in multidimensional array with 1st dimension as replicate
 observations = cat(hcat([16.5, 18.4, 12.7, 14.0, 12.8], [39.1, 26.2, 21.3, 35.8, 40.2]),
@@ -243,7 +207,7 @@ end
 function validate(factortypes::Vector{FactorType}, factornames::Vector{<:AbstractString}, nfactors)
     if !isempty(factortypes)
         length(factortypes) == nfactors || error("factortypes must have an entry for each factor.")
-        nested ∉ factortypes || nonreplicatefactortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || error("nested entries must come before crossed factors")
+        nested ∉ factortypes || factortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || error("nested entries must come before crossed factors")
     end
 
     if !isempty(factornames)

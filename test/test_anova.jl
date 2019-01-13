@@ -153,6 +153,35 @@
         end
     end
 
+    @testset "1-way ANOVA with 1 nested factor" begin
+        expected = [AnovaValue( "Total", 71.666667, 11),
+                    AnovaResult(    "A", 61.166667,  2, 30.583333, 61.166667,   0.0037032412),
+                    AnovaResult(    "B",  1.5,       3,  0.5,       0.33333333, 0.80220227),
+                    AnovaFactor("Error",  9.0,       6,  1.5)]
+
+        @testset "Replicate Vectors" begin
+            observations1 = Array{Vector{Float64}, 2}(undef, 2, 3)
+            observations1[1,1] = [102, 104]
+            observations1[1,2] = [108, 110]
+            observations1[1,3] = [104, 106]
+            observations1[2,1] = [103, 104]
+            observations1[2,2] = [109, 108]
+            observations1[2,3] = [105, 107]
+
+            results = anova(observations)
+            @test all(expected .≈ results.effects)
+        end
+
+        @testset "Replicate First Dimension" begin
+            observations = cat(hcat([102, 104], [103, 104]),
+                               hcat([108, 110], [109, 108]),
+                               hcat([104, 106], [105, 107]), dims = 3)
+
+            results = anova(observations, hasreplicates = false)
+            @test all(expected .≈ results.effects)
+        end
+    end
+
     @testset "3-way ANOVA" begin
         observations1 = Array{Vector{Float64}, 3}(undef, 2, 3, 3)
         observations1[1,1,1] = [1.9, 1.8, 1.6, 1.4]
