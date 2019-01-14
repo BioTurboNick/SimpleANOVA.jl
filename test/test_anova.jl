@@ -248,47 +248,7 @@
         observations2 = cat(hcat([16.5, 18.4, 12.7, 14.0, 12.8], [39.1, 26.2, 21.3, 35.8, 40.2]),
                             hcat([14.5, 11.0, 10.8, 14.3, 10.0], [32.0, 23.8, 28.8, 25.0, 29.3]), dims = 3)
 
-        N = 20
-        nreplicates = 1
-        nlowerfactorlevels = 1
-        cellsums1 = map(x -> sum(x, dims = 1) |> first, observations1)
-        cellsums2 = observations2
-        @test all(cellsums1 .== cellsums2)
-
-        C1 = sum(cellsums1) ^ 2 / N
-        C2 = sum(cellsums2) ^ 2 / N
-        println("C ", C1, " ", C2)
-        @test C1 == C2
-
-        sumofsumofsquares1 = sum(c -> sum(c.^2), observations1)
-        sumofsumofsquares2 = sum(c -> sum(c.^2), observations2)
-        println("sumofsumofsquares ", sumofsumofsquares1, " ", sumofsumofsquares2)
-        @test sumofsumofsquares1 == sumofsumofsquares2
-
-        total1 = sumofsumofsquares1 - C1
-        total2 = sumofsumofsquares2 - C2
-        println("total ", total1, " ", total2)
-        @test total1 == total2
-
-        sumofcells1 = sum(cellsums1)
-        sumofcells2 = sum(cellsums2)
-        println("sumofcells ", sumofcells1, " ", sumofcells2)
-        @test sumofcells1 == sumofcells2
-
-        sumofsquaredcells1 = sum(cellsums1 .^ 2)
-        sumofsquaredcells2 = sum(cellsums2 .^ 2)
-        println("sumofsquaredcells ", sumofsquaredcells1, " ", sumofsquaredcells2)
-        @test sumofsquaredcells1 == sumofsquaredcells2
-
-        nonerror1 = (sum(cellsums1 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C1)
-        nonerror2 = (sum(cellsums2 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C2)
-        println("nonerror ", nonerror1, " ", nonerror2)
-        @test nonerror1 == nonerror2
-
-        error1 = total1 - nonerror1
-        error2 = total2 - nonerror2
-        println("error ", error1, " ", error2)
-        @test error1 == error2
+        foreach(println(sum(c -> sum(c.^2), observations2)), 1:100)
     end
 
 #=
