@@ -254,7 +254,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     data = AnovaData([total; results])
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
-    push!(data.effects, error)
+    error.df > 0 && push!(data.effects, error)
 
     return data
 end
