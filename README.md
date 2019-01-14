@@ -15,5 +15,7 @@ It uses multidimensional arrays to interpret the structure of the data. Replicat
 
 See docstring for usage.
 
+Note: Uses parts from [InvertedIndices.jl](https://github.com/mbauman/InvertedIndices.jl)
+
 
 VERY EXPERIMENTAL - NOT READY FOR REAL USE
