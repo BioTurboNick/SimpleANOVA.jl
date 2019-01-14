@@ -249,15 +249,9 @@
                             hcat([14.5, 11.0, 10.8, 14.3, 10.0], [32.0, 23.8, 28.8, 25.0, 29.3]), dims = 3)
 
         println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
-        println(sum(c -> sum(c.^2), observations2))
+        println(sum(c -> c.^2, observations2))
+        println(sum(c -> sum(c.^2), observations1))
+        println(sum(c -> c.^2, observations1))
     end
 
 #=
