@@ -263,6 +263,7 @@
 
            @testset "Replicate First Dimension" begin
                results = anova(observations2, [nested], hasreplicates = false)
+               println(results)
                @test all(expected .≈ results.effects)
            end
         end
