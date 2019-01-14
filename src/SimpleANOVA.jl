@@ -38,4 +38,35 @@ end
 
 export anova, ftest, plot, levene
 
+#=
+function anovasubjectskernel()
+    N = ncells * nreplicates
+    nfactors = nnestedfactors + ncrossedfactors
+
+    # collapse replicate dimension
+    cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
+    C = sum(cellsums) ^ 2 / N
+    total = totalcalc(observations, N, C)
+
+    # for moment, assuming first dimension is subject
+    subjectsss = sum(sum(cellsums, dims = 2) .^ 2) / 3 -  C # 3 is number of elements for the subject, dims = 2 is all but the subject dimension
+
+    #factors and interactions calculated as normal
+
+    withinsubjectsss = totalss - subjectsss
+
+    withinsubjectsdf = nsubjects * nfactoroutside * factorinsidedf
+    subjectswithinfactorsss = subjectss - factorsss  #guess
+    subjectswithinfactorsdf = subjectdf - factorsdf
+
+    withinsubjectinteractionsss = withinsubjectsss - withinsubjectsfactorss - interactionss
+    withinsubjectinteractionsdf = withisubjectsdf - withinsubjectsfactordf - interactiondf
+
+
+    # test for B; B / withinsubjectinteractions
+    #test for A; A / subjects within factor A
+    # test for interaction; interaction / withinsubjectinteraction
+end
+=#
+
 end
