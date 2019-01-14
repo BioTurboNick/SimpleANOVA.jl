@@ -23,38 +23,6 @@ Index indicates the value of that factor level. E.g. [3,4] specifies Factor A le
 
 Examples
 
-2-way ANOVA with 1 nested factor, no replicates
-Specified in multidimensional array with 1st dimension as replicate
-observations = cat(hcat([16.5, 18.4, 12.7, 14.0, 12.8], [39.1, 26.2, 21.3, 35.8, 40.2]),
-                   hcat([14.5, 11.0, 10.8, 14.3, 10.0], [32.0, 23.8, 28.8, 25.0, 29.3]), dims = 3)
-    Note: must specify that first dimension is a replicate
-
-                Factor B
-                   1       2
-Factor A    1   16.5    14.5
-                18.4    11.0
-                12.7    10.8
-                14.0    14.3
-                12.8    10.0
-
-            2   39.1    32.0
-                26.2    23.8
-                21.3    28.8
-                35.8    25.0
-                40.2    29.3
-
-1-way ANOVA with 2 nested factors, replicates
-Specified in multidimensional array with 1st dimension as replicate
-observations = cat(cat(hcat([3.17, 4.41, 1.81, 1.74], [2.81, 4.98, 2.62, 2.53]),
-                       hcat([3.0, 3.02, 4.73, 1.77], [4.13, 0.71, 3.18, 3.34]), dims = 3),
-                   cat(hcat([2.42, 1.28, 1.4, 2.56], [1.26, 1.08, 1.42, 0.85]),
-                       hcat([0.36, 0.35, 2.64, 3.75], [3.86, 2.53, 3.97, 3.03]), dims = 3),
-                   cat(hcat([5.24, 2.24, 0.18, 3.06], [4.04, 4.14, 0.33, 4.61]),
-                       hcat([6.06, 1.61, 2.25, 2.44], [0.02, 3.95, 0.87, 2.0]), dims = 3), dims = 4)
-    Note: must specify that first dimension is a replicate
-
-
-
 1-way ANOVA within subjects
 observations = Array{Vector{Float64}, 2}(undef, 7, 3)
 observations[1,1] = [164]
@@ -494,9 +462,7 @@ function getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbase
     # determine correct denominators for nested factors
     if nnestedfactors > 0
         nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
-        for i ∈ 1:(nnestedfactors - 1)
-            nesteddenominators[i] = nestedfactors[i + 1]
-        end
+        nesteddenominators[1:end-1] = nestedfactors[2:end]
         nesteddenominators[end] = error
         append!(denominators, nesteddenominators)
     end
