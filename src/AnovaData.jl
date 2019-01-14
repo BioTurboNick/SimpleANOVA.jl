@@ -17,7 +17,7 @@ function show(io::IO, ad::AnovaData)
 
     ss = [e.ss |> compactshow for e ∈ ad.effects]
     df = [e.df |> Int |> compactshow for e ∈ ad.effects]
-    ms = [typeof(e) ∈ [AnovaFactor, AnovaResult] && !isnan(e.ms) ? e.ms |> compactshow  : "" for e ∈ ad.effects]
+    ms = [typeof(e) ∈ [AnovaFactor, AnovaResult] ? e.ms |> compactshow  : "" for e ∈ ad.effects]
     f = [e isa AnovaResult ? e.f |> compactshow : "" for e ∈ ad.effects]
     p = [e isa AnovaResult ? e.p |> compactshow : "" for e ∈ ad.effects]
 
