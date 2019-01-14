@@ -260,8 +260,13 @@
         println("C ", C1, " ", C2)
         @test C1 == C2
 
-        total1 = (sum(c -> sum(c.^2), observations1) - C1)
-        total2 = (sum(c -> sum(c.^2), observations2) - C2)
+        sumofsumofsquares1 = sum(c -> sum(c.^2), observations1)
+        sumofsumofsquares2 = sum(c -> sum(c.^2), observations2)
+        println("sumofsumofsquares ", sumofsumofsquares1, " ", sumofsumofsquares2)
+        @test sumofsumofsquares1 == sumofsumofsquares2
+
+        total1 = sumofsumofsquares1 - C1
+        total2 = sumofsumofsquares2 - C2
         println("total ", total1, " ", total2)
         @test total1 == total2
 
