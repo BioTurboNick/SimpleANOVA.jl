@@ -257,12 +257,32 @@
 
         C1 = sum(cellsums1) ^ 2 / N
         C2 = sum(cellsums2) ^ 2 / N
-        println(C1, " ", C2)
+        println("C ", C1, " ", C2)
         @test C1 == C2
 
-        error1 = (sum(c -> sum(c.^2), observations1) - C1) - (sum(cellsums1 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C1)
-        error2 = (sum(c -> sum(c.^2), observations2) - C2) - (sum(cellsums2 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C2)
-        println(error1, " ", error2)
+        total1 = (sum(c -> sum(c.^2), observations1) - C1)
+        total2 = (sum(c -> sum(c.^2), observations2) - C2)
+        println("total ", total1, " ", total2)
+        @test total1 == total2
+
+        sumofcells1 = sum(cellsums1)
+        sumofcells2 = sum(cellsums2)
+        println("sumofcells ", sumofcells1, " ", sumofcells2)
+        @test sumofcells1 == sumofcells2
+
+        sumofsquaredcells1 = sum(cellsums1 .^ 2)
+        sumofsquaredcells2 = sum(cellsums2 .^ 2)
+        println("sumofsquaredcells ", sumofsquaredcells1, " ", sumofsquaredcells2)
+        @test sumofsquaredcells1 == sumofsquaredcells2
+
+        nonerror1 = (sum(cellsums1 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C1)
+        nonerror2 = (sum(cellsums2 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C2)
+        println("nonerror ", nonerror1, " ", nonerror2)
+        @test nonerror1 == nonerror2
+
+        error1 = total1 - nonerror1
+        error2 = total2 - nonerror2
+        println("error ", error1, " ", error2)
         @test error1 == error2
     end
 
