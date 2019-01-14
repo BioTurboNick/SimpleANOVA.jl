@@ -303,7 +303,7 @@ function sumfirstdim(observations::T) where {T <: AbstractArray{<:Number}}
 end
 
 function sumfirstdim(observations::T) where {T <: AbstractVector{<:Number}}
-    first(sum(observations, dims = 1))
+    sum(observations, dims = 1) |> first
 end
 
 function totalcalc(observations, N, C)

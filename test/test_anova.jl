@@ -222,6 +222,51 @@
         end
     end
 
+    @testset "???" begin
+        observations1 = Array{Vector{Float64}, 3}(undef, 5, 2, 2)
+        observations1[1,1,1] = [16.5]
+        observations1[2,1,1] = [18.4]
+        observations1[3,1,1] = [12.7]
+        observations1[4,1,1] = [14.0]
+        observations1[5,1,1] = [12.8]
+        observations1[1,2,1] = [39.1]
+        observations1[2,2,1] = [26.2]
+        observations1[3,2,1] = [21.3]
+        observations1[4,2,1] = [35.8]
+        observations1[5,2,1] = [40.2]
+        observations1[1,1,2] = [14.5]
+        observations1[2,1,2] = [11.0]
+        observations1[3,1,2] = [10.8]
+        observations1[4,1,2] = [14.3]
+        observations1[5,1,2] = [10.0]
+        observations1[1,2,2] = [32.0]
+        observations1[2,2,2] = [23.8]
+        observations1[3,2,2] = [28.8]
+        observations1[4,2,2] = [25.0]
+        observations1[5,2,2] = [29.3]
+
+        observations2 = cat(hcat([16.5, 18.4, 12.7, 14.0, 12.8], [39.1, 26.2, 21.3, 35.8, 40.2]),
+                            hcat([14.5, 11.0, 10.8, 14.3, 10.0], [32.0, 23.8, 28.8, 25.0, 29.3]), dims = 3)
+
+        N = 20
+        nreplicates = 1
+        nlowerfactorlevels = 1
+        cellsums1 = map(x -> sum(x, dims = 1) |> first, observations1)
+        cellsums2 = observations2
+        @test all(cellsums1 .== cellsums2)
+
+        C1 = sum(cellsums1) ^ 2 / N
+        C2 = sum(cellsums2) ^ 2 / N
+        println(C1, " ", C2)
+        @test C1 == C2
+
+        error1 = (sum(c -> sum(c.^2), observations1) - C1) - (sum(cellsums1 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C1)
+        error2 = (sum(c -> sum(c.^2), observations2) - C2) - (sum(cellsums2 .^ 2 ./ (nreplicates * prod(nlowerfactorlevels))) - C2)
+        println(error1, " ", error2)
+        @test error1 == error2
+    end
+
+#=
     @testset "2-way ANOVA with 1 nested factor, no replicates" begin
         observations1 = Array{Vector{Float64}, 3}(undef, 5, 2, 2)
         observations1[1,1,1] = [16.5]
@@ -306,7 +351,7 @@
            end
         end
     end
-
+=#
     @testset "3-way ANOVA" begin
         observations1 = Array{Vector{Float64}, 3}(undef, 2, 3, 3)
         observations1[1,1,1] = [1.9, 1.8, 1.6, 1.4]
