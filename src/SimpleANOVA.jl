@@ -14,54 +14,6 @@ const cellsname = "Cells"
 const errorname = "Error"
 const remaindername = "Remainder"
 
-# It might be even simpler to assume the first level is replicates, and force user to specify if not.
-# Likely more common that a user would have replicates than not. And if it was a nested factor instead,
-# the user would have to specify that.
-
-#=
-Index indicates the value of that factor level. E.g. [3,4] specifies Factor A level 3 and Factor B level 4
-
-Examples
-
-1-way ANOVA within subjects
-observations = Array{Vector{Float64}, 2}(undef, 7, 3)
-observations[1,1] = [164]
-observations[1,2] = [152]
-observations[1,3] = [178]
-observations[2,1] = [202]
-observations[2,2] = [181]
-observations[2,3] = [222]
-observations[3,1] = [143]
-observations[3,2] = [136]
-observations[3,3] = [132]
-observations[4,1] = [210]
-observations[4,2] = [194]
-observations[4,3] = [216]
-observations[5,1] = [228]
-observations[5,2] = [219]
-observations[5,3] = [245]
-observations[6,1] = [173]
-observations[6,2] = [159]
-observations[6,3] = [182]
-observations[7,1] = [161]
-observations[7,2] = [157]
-observations[7,3] = [165]
-
--or-
-
-observations = [164 152 178; 202 181 222; 143 136 132; 210 194 216; 228 219 245; 173 159 182; 161 157 165]
-
-                Factor
-                  1   2   3
-Subjects    1   164 152 178
-            2   202 181 222
-            3   143 136 132
-            4   210 194 216
-            5   228 219 245
-            6   173 159 182
-            7   161 157 165
-=#
-
 """
     anova(observations, [factortypes, factornames])
 
@@ -226,37 +178,6 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     return data
 end
-
-#=
-function anovasubjectskernel()
-    N = ncells * nreplicates
-    nfactors = nnestedfactors + ncrossedfactors
-
-    # collapse replicate dimension
-    cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
-    C = sum(cellsums) ^ 2 / N
-    total = totalcalc(observations, N, C)
-
-    # for moment, assuming first dimension is subject
-    subjectsss = sum(sum(cellsums, dims = 2) .^ 2) / 3 -  C # 3 is number of elements for the subject, dims = 2 is all but the subject dimension
-
-    #factors and interactions calculated as normal
-
-    withinsubjectsss = totalss - subjectsss
-    withinsubjectsdf = nsubjects * nfactoroutside * factorinsidedf
-
-    subjectswithinfactorsss = subjectss - factorsss  #guess
-    subjectswithinfactorsdf = subjectdf - factorsdf
-
-    withinsubjectinteractionsss = withinsubjectsss - withinsubjectsfactorss - interactionss
-    withinsubjectinteractionsdf = withisubjectsdf - withinsubjectsfactordf - interactiondf
-
-
-    #test for A; A / subjects within factor A
-    # test for B; B / withinsubjectinteractions
-    # test for interaction; interaction / withinsubjectinteraction
-end
-=#
 
 function sumfirstdim(observations::T) where {T <: AbstractArray{<:AbstractVector}}
     map(sumfirstdim, observations)
