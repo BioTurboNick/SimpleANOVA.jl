@@ -179,8 +179,8 @@ function errorcalc(total, amongallnested, cells, otherfactors, nnestedfactors, n
 end
 
 function errorcalc(name, total, otherfactors)
-    ss = total.ss - sum(f -> f.ss, factors)
-    df = total.df - sum(f -> f.df, factors)
+    ss = total.ss - sum(f -> f.ss, otherfactors)
+    df = total.df - sum(f -> f.df, otherfactors)
     AnovaFactor(name, ss, df)
 end
 
