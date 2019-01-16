@@ -16,7 +16,7 @@ A set of values for an Anova factor which has been tested
 `p` - the probability of a Type I error (imcorrect rejection of null hypothesis)
 """
 struct AnovaResult <: AnovaEffect
-    name::AbstractString
+    name::String
     ss::Float64
     df::Float64
     ms::Float64

@@ -138,11 +138,7 @@ function sumfirstdim(observations::T) where {T <: AbstractArray{<:AbstractVector
 end
 
 function sumfirstdim(observations::T) where {T <: AbstractArray{<:Number}}
-    if (ndims(observations) > 1)
-        dropdims(sum(observations, dims = 1), dims = 1)
-    else
-        sum(observations)
-    end
+    dropdims(sum(observations, dims = 1), dims = 1)
 end
 
 function sumfirstdim(observations::T) where {T <: AbstractVector{<:Number}}

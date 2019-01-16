@@ -12,7 +12,7 @@ A set of values for an Anova effect which has a mean square.
 `ms` - mean square
 """
 struct AnovaFactor <: AnovaEffect
-    name::AbstractString
+    name::String
     ss::Float64
     df::Float64
     ms::Float64
