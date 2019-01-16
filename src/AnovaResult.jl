@@ -34,3 +34,5 @@ isapprox(x::AnovaResult, y::AnovaResult) =
     x.ms ≈ y.ms &&
     x.f ≈ y.f &&
     x.p ≈ y.p
+
+export AnovaResult

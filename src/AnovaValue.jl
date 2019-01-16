@@ -22,3 +22,5 @@ isapprox(x::AnovaValue, y::AnovaValue) =
     x.name == y.name &&
     x.ss ≈ y.ss &&
     x.df == y.df
+
+export AnovaValue

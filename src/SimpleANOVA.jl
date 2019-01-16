@@ -362,6 +362,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-export anova, AnovaData, AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, FactorType, fixed, random, nested
+export anova, ftest
 
 end
