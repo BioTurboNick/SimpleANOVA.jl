@@ -125,6 +125,7 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     factorlevelcounts = [[count(l -> l == factorlevels[i][j], factorassignments[i]) for j ∈ 1:nfactorlevels[i]] for i ∈ 1:nfactors]
     nperfactorlevel = factorlevelcounts .|> unique
     all(nperfactorlevel .|> length .== 1) || error("Design is unbalanced.")
+    nperfactorlevel = nperfactorlevel .|> first
 
     if any(maximum.(factorlevels) .> nfactorlevels)
         compressedfactorlevels = [1:i for i ∈ nfactorlevels]
@@ -136,8 +137,11 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
 
 #=
     if nreplicates > 1
-        sortorder = sortperm(1:nreplicates .+ factorassignments[1] .* nperfactorlevel[1] .+ factorassignments[2] .* nperfactorlevel[2) .+ factorassignments[3] .* prod(nperfactorlevel[1:2]))
-        observations = reshape(observations[sortorder], nfactorlevels + 1)
+        sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
+                             (factorassignments[1] .- 1) .* nreplicates .+
+                             (factorassignments[2] .- 1) .* prod([nreplicates; nfactorlevels[1]]) .+
+                             (factorassignments[3] .- 1) .* prod([nreplicates; nfactorlevels[1:2]]))
+        observationsmatrix = reshape(observations[sortorder], nreplicates, nfactorlevels...)
         anova(observationsmatrix, factortypes, factornames = factornames)
     else
         sortorder = sortperm(factorassignments[1] .+ factorassignments[2] .* prod(nperfactorlevel[1:2]) .+ factorassignments[3] .* prod(nperfactorlevel[1:3]))
