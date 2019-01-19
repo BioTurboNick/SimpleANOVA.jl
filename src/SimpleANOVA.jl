@@ -110,7 +110,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
 end
 
 
-function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
+function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
     # take a vector of observations and a vector containing a vector for each factor assigning the observations to a factor level of that factor.
     # may not work if nested factors don't reuse values for their assignments - may be able to correct if factor declared as nested
     length(observations) > 0 || return
