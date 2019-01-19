@@ -135,31 +135,11 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
 
     nreplicates = Int(N / prod(nfactorlevels))
 
-#=
-    if nreplicates > 1
-        sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
-                             (factorassignments[1] .- 1) .* nreplicates .+
-                             (factorassignments[2] .- 1) .* prod([nreplicates; nfactorlevels[1]]) .+
-                             (factorassignments[3] .- 1) .* prod([nreplicates; nfactorlevels[1:2]]))
-        observationsmatrix = reshape(observations[sortorder], nreplicates, nfactorlevels...)
-        anova(observationsmatrix, factortypes, factornames = factornames)
-    else
-        sortorder = sortperm(factorassignments[1] .+ factorassignments[2] .* prod(nperfactorlevel[1:2]) .+ factorassignments[3] .* prod(nperfactorlevel[1:3]))
-        observations = reshape(observations[sortorder], nfactorlevels)
-        anova(observationsmatrix, factortypes, factornames = factornames, hasreplicates = false)
-    end
-=#
-
-
-    indexes = [CartesianIndex([factorassignments[j][i] for j in 1:nfactors]...) for i in 1:N]
-    uniqueindexes = unique(indexes)
-    replicates = [observations[findall(indexes .== Ref(index))] for index ∈ uniqueindexes]
-
-    #works, but sorting and then reshaping original vector might be more efficient
-    observationsmatrix = Array{Vector{T}, nfactors}(undef, nfactorlevels...)
-    observationsmatrix[uniqueindexes] .= replicates
+    nlevels = [nreplicates; nfactorlevels]
+    sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
+                         sum([factorassignments[i] .* prod(nlevels[1:i]) for i in 1:nfactors]))
+    observationsmatrix = reshape(observations[sortorder], nlevels...)
     anova(observationsmatrix, factortypes, factornames = factornames)
-
 end
 
 #=
