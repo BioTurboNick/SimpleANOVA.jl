@@ -112,6 +112,7 @@ end
 
 function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
     # take a vector of observations and a vector containing a vector for each factor assigning the observations to a factor level of that factor.
+    # may not work if nested factors don't reuse values for their assignments - may be able to correct if factor declared as nested
     length(observations) > 0 || return
     nfactors = length(factorassignments)
     N = length(observations)
@@ -120,24 +121,41 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
 
     factorlevels = factorassignments .|> unique .|> sort
     nfactorlevels = length.(factorlevels)
-    all(nfactorlevels .% N == 0) || error("Design is unbalanced.")
+    all(N .& nfactorlevels .== 0) || error("Design is unbalanced.")
     factorlevelcounts = [[count(l -> l == factorlevels[i][j], factorassignments[i]) for j ∈ 1:nfactorlevels[i]] for i ∈ 1:nfactors]
-    all(factorlevelcounts .|> unique .|> length .== 1) || error("Design is unbalanced.")
+    nperfactorlevel = factorlevelcounts .|> unique
+    all(nperfactorlevel .|> length .== 1) || error("Design is unbalanced.")
 
-    compressedfactorlevels = [1:i for i ∈ nfactorlevels]
-    factorlevelremapping = [factorlevels[i] .=> compressedfactorlevels[i] for i ∈ 1:nfactors]
-    factorassignments = [replace(factorassignments[i], factorlevelremapping[i]...) for i ∈ 1:nfactors]
+    if any(maximum.(factorlevels) .> nfactorlevels)
+        compressedfactorlevels = [1:i for i ∈ nfactorlevels]
+        factorlevelremapping = [factorlevels[i] .=> compressedfactorlevels[i] for i ∈ 1:nfactors]
+        factorassignments = [replace(factorassignments[i], factorlevelremapping[i]...) for i ∈ 1:nfactors]
+    end
+
+    nreplicates = Int(N / prod(nfactorlevels))
+
+#=
+    if nreplicates > 1
+        sortorder = sortperm(1:nreplicates .+ factorassignments[1] .* nperfactorlevel[1] .+ factorassignments[2] .* nperfactorlevel[2) .+ factorassignments[3] .* prod(nperfactorlevel[1:2]))
+        observations = reshape(observations[sortorder], nfactorlevels + 1)
+        anova(observationsmatrix, factortypes, factornames = factornames)
+    else
+        sortorder = sortperm(factorassignments[1] .+ factorassignments[2] .* prod(nperfactorlevel[1:2]) .+ factorassignments[3] .* prod(nperfactorlevel[1:3]))
+        observations = reshape(observations[sortorder], nfactorlevels)
+        anova(observationsmatrix, factortypes, factornames = factornames, hasreplicates = false)
+    end
+=#
+
 
     indexes = [CartesianIndex([factorassignments[j][i] for j in 1:nfactors]...) for i in 1:N]
-
     uniqueindexes = unique(indexes)
     replicates = [observations[findall(indexes .== Ref(index))] for index ∈ uniqueindexes]
 
     #works, but sorting and then reshaping original vector might be more efficient
-    observationmatrix = Array{Vector{T}, nfactors}(undef, nfactorlevels...)
-    observationmatrix[uniqueindexes] .= replicates
+    observationsmatrix = Array{Vector{T}, nfactors}(undef, nfactorlevels...)
+    observationsmatrix[uniqueindexes] .= replicates
+    anova(observationsmatrix, factortypes, factornames = factornames)
 
-    anova(observationsmatrix, factortypes, factornames)
 end
 
 #=
