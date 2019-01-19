@@ -1,6 +1,6 @@
 module SimpleANOVA
 
-using Statistics, Distributions
+using Distributions
 include("InvertedIndices.jl")
 include("AnovaEffect.jl")
 include("AnovaValue.jl")
@@ -69,32 +69,6 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
         reverse!(factornames)
     end
 
-    # for randomized blocks, only real differences is that "blocks" factor isn't tested. Option?
-    # for repeated measures, only difference is that "subjects" factor isn't tested. Option?
-    #     if 2 factors, treated as 3-way ANOVA with subjects as random factor. Where does remainder come in with a 3-way?
-    # for latin squares, test as a 3-factor ANOVA with 1 fixed and 2 random factors
-    # multiway blocked/repeated measures with within-and-among factors will need another look, but may just be
-    #     the same as nesting? No, looks like not because the factor could be fixed
-
-    # If missing data in without-replicate design, need to calculate and provide the bias. Can provide that with below function?
-    # Although, idea is for user to have to make few decisions...
-
-    # Get replicate counts per cell.
-    # If equal, proceed as normal
-    # If proportional, proceed with matrix of nreplicates (question: how to make generalized?)
-    # The function will not handle replacement of mising if disproportional, but Shearer's function will be available to allow user
-    # to create such estimates for themselves.
-    # Also provide a random deletion function?
-    # Note: GLM can deal with high unequal replication
-
-    # can provide power equations too.
-
-    #  Different type Sums of Squares only apply for unbalanced designs
-    #  Type I is bad and should never be done.
-    #  Type II is only valid if there is no interaction. This is the same advice of my stats book.
-    #  Type III is valid if there are interactions, but usually it isn't useful to interpret if there are interactions.
-    #  I'll stick with Type II and document it.
-
     nnestedfactors = count(f -> f == nested, factortypes)
     crossedfactortypes = filter(f -> f ∈ [fixed, random], factortypes)
     reverse!(crossedfactortypes)
@@ -108,6 +82,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     crossedfactornames = factornames[factortypes .≠ nested]
     nestedfactornames = factornames[factortypes .== nested]
 
+    #10kb allocated before this point
     anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
 
@@ -141,13 +116,6 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     anova(observationsmatrix, factortypes, factornames = factornames)
 end
 
-#=
-function anova(observations::AbstractVector{<:Number}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[])
-    # extract data from DataFame, place into matrix, and then proceed
-    anova(observations, factorassignments, factortypes, factornames)
-end
-=#
-
 function validate(factortypes::Vector{FactorType}, factornames::Vector{<:AbstractString}, nfactors)
     if !isempty(factortypes)
         length(factortypes) == nfactors || error("factortypes must have an entry for each factor.")
@@ -155,7 +123,7 @@ function validate(factortypes::Vector{FactorType}, factornames::Vector{<:Abstrac
     end
 
     if !isempty(factornames)
-        nfactors < 26 || error("Can only automatically name up to 26 factors. Provide names explicitly.")
+        nfactors ≤ 26 || error("Can only automatically name up to 26 factors. Provide names explicitly.")
         length(factornames) == nfactors || error("factornames must have an entry for each factor.")
     end
 end
@@ -171,21 +139,16 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
     cells = cellscalc(cellsums, nreplicates, ncells, C)
 
-    crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames)
-    interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames)
+    crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames) # 3kb allocated here, possibly can't be avoided
+    interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames) # 9 kb allocated here!
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
-    reverse!(crossedfactors)
+    error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates)
 
-    if nnestedfactors > 0 || nreplicates > 1
-        nonerror = nnestedfactors > 0 ? amongallnested[1] : nreplicates > 1 ? cells : crossedfactors
-        error = errorcalc(total, nonerror)
-    else
-        error = remaindercalc(total, [crossedfactors; interactions[1:end-1]])
-    end
+    reverse!(crossedfactors)
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
     crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[end] : error;
-    denominators = getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbasedenominator, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)
+    denominators = getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbasedenominator, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)# 2-3kb allocated, 50 allocations
 
     # drop least significant test if nreplicates == 1; either the lowest interaction level, or lowest nesting level if present
     if nreplicates == 1
@@ -208,11 +171,7 @@ function sumfirstdim(observations::T) where {T <: AbstractArray{<:AbstractVector
 end
 
 function sumfirstdim(observations::T) where {T <: AbstractArray{<:Number}}
-    if (ndims(observations) > 1)
-        dropdims(sum(observations, dims = 1), dims = 1)
-    else
-        sum(observations)
-    end
+    dropdims(sum(observations, dims = 1), dims = 1)
 end
 
 function sumfirstdim(observations::T) where {T <: AbstractVector{<:Number}}
@@ -238,16 +197,21 @@ function cellscalc(cellsums, nreplicates, ncells, C)
     AnovaValue(cellsname, ss, df)
 end
 
-function errorcalc(total, nonerror)
-    ss = total.ss - nonerror.ss
-    df = total.df - nonerror.df
-    AnovaFactor(errorname, ss, df)
-end
+function errorcalc(total, amongallnested, cells, otherfactors, nnestedfactors, nreplicates)
+    if nnestedfactors > 0
+        otherfactor = amongallnested[1]
+        name = errorname
+    elseif nreplicates > 1
+        otherfactor = cells
+        name = errorname
+    else
+        otherfactor = AnovaValue("", sum(f -> f.ss, otherfactors), sum(f -> f.df, otherfactors))
+        name = remaindername
+    end
 
-function remaindercalc(total, factors)
-    ss = total.ss - sum(f -> f.ss, factors)
-    df = total.df - sum(f -> f.df, factors)
-    AnovaFactor(remaindername, ss, df)
+    ss = total.ss - otherfactor.ss
+    df = total.df - otherfactor.df
+    AnovaFactor(name, ss, df)
 end
 
 function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
@@ -430,6 +394,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-export anova, AnovaData, AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, FactorType, fixed, random, nested
+export anova, ftest
 
 end

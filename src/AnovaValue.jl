@@ -10,7 +10,7 @@ A set of values for an Anova item for which a mean square is not required.
 `df` - degrees of freedom
 """
 struct AnovaValue <: AnovaEffect
-    name::AbstractString
+    name::String
     ss::Float64
     df::Float64
 end
@@ -22,3 +22,5 @@ isapprox(x::AnovaValue, y::AnovaValue) =
     x.name == y.name &&
     x.ss ≈ y.ss &&
     x.df == y.df
+
+export AnovaValue
