@@ -109,15 +109,38 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
 
-#=
-function anova(observations::AbstractVector{<:Number}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[])
-    # take a vector of observations and a vector containing a vector for each factor assigning the observations to a factor level of that factor.
 
-    # ensure observations are balanced
-    # reorganize observations into matrix and complete as normal
+function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
+    # take a vector of observations and a vector containing a vector for each factor assigning the observations to a factor level of that factor.
+    length(observations) > 0 || return
+    nfactors = length(factorassignments)
+    N = length(observations)
+    N % nfactors == 0 || error("Design is unbalanced.")
+    all(length.(factorassignments) .== N) || error("Each observation must have an assignment for each factor.")
+
+    factorlevels = factorassignments .|> unique .|> sort
+    nfactorlevels = length.(factorlevels)
+    all(nfactorlevels .% N == 0) || error("Design is unbalanced.")
+    factorlevelcounts = [[count(l -> l == factorlevels[i][j], factorassignments[i]) for j ∈ 1:nfactorlevels[i]] for i ∈ 1:nfactors]
+    all(factorlevelcounts .|> unique .|> length .== 1) || error("Design is unbalanced.")
+
+    compressedfactorlevels = [1:i for i ∈ nfactorlevels]
+    factorlevelremapping = [factorlevels[i] .=> compressedfactorlevels[i] for i ∈ 1:nfactors]
+    factorassignments = [replace(factorassignments[i], factorlevelremapping[i]...) for i ∈ 1:nfactors]
+
+    indexes = [CartesianIndex([factorassignments[j][i] for j in 1:nfactors]...) for i in 1:N]
+
+    uniqueindexes = unique(indexes)
+    replicates = [observations[findall(indexes .== Ref(index))] for index ∈ uniqueindexes]
+
+    #works, but sorting and then reshaping original vector might be more efficient
+    observationmatrix = Array{Vector{T}, nfactors}(undef, nfactorlevels...)
+    observationmatrix[uniqueindexes] .= replicates
+
     anova(observationsmatrix, factortypes, factornames)
 end
 
+#=
 function anova(observations::AbstractVector{<:Number}, factorassignments::AbstractVector{AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[])
     # extract data from DataFame, place into matrix, and then proceed
     anova(observations, factorassignments, factortypes, factornames)
