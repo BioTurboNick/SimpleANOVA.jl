@@ -488,7 +488,7 @@
         @testset "2-way ANOVA rejects nested factor with exclusive levels" begin
             factorlevels = factorassignments .|> unique .|> sort
             nfactorlevels = length.(factorlevels)
-            nlevels = [nreplicates; nfactorlevels]
+            nlevels = [4; nfactorlevels]
             nestedfactorassignment = (repeat(1:4, Int(length(observations) / 4)) .+
                                       sum([(factorassignments[i] .- 1) .* prod(nlevels[1:i]) for i ∈ 1:length(factorassignments)])) ./ 4 .|> ceil .|> Int
             nestedfactorassignments = [[nestedfactorassignment]; factorassignments[2:3]]
