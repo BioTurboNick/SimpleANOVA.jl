@@ -15,11 +15,17 @@ const errorname = "Error"
 const remaindername = "Remainder"
 
 """
-    anova(observations, [factortypes, factornames])
+    anova(observations::Union{Array{Number}, Array{Vector{Number}}}, [factortypes, factornames, hasreplicates = true])
+    anova(observations::Vector{Number}, factorassignments::Vector{Vector{Int}}, [factortypes, factornames])
 
-`observations` - Matrix containing the values. Each dimension is a factor level, such that observations[2,5,3] indicates
+`observations` - Array containing the values to test. For the array, each dimension is a factor level, such that observations[2,5,3] indicates
 the 2nd level of the first factor, the 5th level of the second factor, and the 3rd level of the third factor. May
-contain values or vectors of values, where the vector contains replicates.
+contain values or vectors of values, where the vector contains replicates. Factors should be ordered with least significant first.
+For the vector, must provide `factorassignments` to specify factor levels.
+
+`factorassignments` - Vector of vectors of integers specifying how each observation is assigned to a factor level. Provide
+this when `observations` is given as a vector. Factor levels do not have to be consecutive or ordered. Nested factors must
+reuse factor levels currently.
 
 `factortypes` - Vector indicating the `FactorType` for each factor. If present, `replicates` must appear first, any
 `nested` after, and then `random` or `fixed` in any order. Specify `replicates` if the first dimension of the
@@ -34,20 +40,16 @@ Notes: Requires balanced data. The last index will be your "topmost" factor.
 Output: `AnovaData` structure containing the test results for each factor.
 
 Examples:
-N-way fixed-effects ANOVA with replicates in vectors: anova(observations)
-
-N-way fixed-effects ANOVA with replicates in first dimension: anova(observations)
-
-N-way fixed-effects ANOVA without replicates in first dimension: anova(observations, replicates = false)
-
-2-way ANOVA with Factor A random and Factor B fixed with replicates in vectors: anova(observations, [random])
-
-2-way ANOVA with Factor A fixed and Factor B random with replicates in vectors: anova(observations, [fixed, random])
-
-2-way fixed-effects ANOVA with 2 random nested factors with replicates in first dimension:
-anova(observations, [nested, nested])
+```julia
+anova(observations)                        # N-way fixed-effects ANOVA with replicates (vectors or first dimension)
+anova(observations, hasreplicates = false) # N-way fixed-effects ANOVA without replicates (first dimension)
+anova(observations, [random])              # N-way ANOVA with lower random factor and 1 or 2 upper fixed factors
+anova(observations, [random])              # N-way ANOVA with lower random factor and 1 or 2 upper fixed factors
+anova(observations, [fixed, random])       # N-way ANOVA with 1 lower fixed factor, 1 random factor, and 0 or 1 upper fixed factor
+anova(observations, [nested, nested])      # N-way fixed-effects ANOVA with 2 random nested factors and 1-3 fixed factors
+```
 """
-function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true, withinsubjects = false) where {T <: Union{Number, AbstractVector{<:Number}}}
+function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
 
     firstlevelreplicates = eltype(observations) <: Number ? hasreplicates : false
@@ -109,10 +111,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
 
-
 function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
-    # take a vector of observations and a vector containing a vector for each factor assigning the observations to a factor level of that factor.
-    # may not work if nested factors don't reuse values for their assignments - may be able to correct if factor declared as nested
     length(observations) > 0 || return
     nfactors = length(factorassignments)
     N = length(observations)
@@ -137,7 +136,7 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
 
     nlevels = [nreplicates; nfactorlevels]
     sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
-                         sum([factorassignments[i] .* prod(nlevels[1:i]) for i in 1:nfactors]))
+                         sum([factorassignments[i] .* prod(nlevels[1:i]) for i ∈ 1:nfactors]))
     observationsmatrix = reshape(observations[sortorder], nlevels...)
     anova(observationsmatrix, factortypes, factornames = factornames)
 end

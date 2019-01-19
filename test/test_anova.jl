@@ -428,42 +428,72 @@
     end
 
     @testset "Vectors" begin
+        observations = [1.9, 1.8, 1.6, 1.4,
+                        2.1, 2.0, 1.8, 2.2,
+                        1.1, 1.2, 1.0, 1.4,
+                        2.3, 2.1, 2.0, 2.6,
+                        2.4, 2.6, 2.7, 2.3,
+                        2.0, 2.1, 1.9, 2.2,
+                        2.9, 2.8, 3.4, 3.2,
+                        3.6, 3.1, 3.4, 3.2,
+                        2.9, 2.8, 3.0, 3.1,
+                        1.8, 1.7, 1.4, 1.5,
+                        2.3, 2.0, 1.9, 1.7,
+                        1.4, 1.0, 1.3, 1.2,
+                        2.4, 2.7, 2.4, 2.6,
+                        2.0, 2.3, 2.1, 2.4,
+                        2.4, 2.6, 2.3, 2.2,
+                        3.0, 3.1, 3.0, 2.7,
+                        3.1, 3.0, 2.8, 3.2,
+                        3.2, 2.9, 2.8, 2.9]
+
+        factorassignments = [[repeat([1], 36); repeat([2], 36)],
+                             repeat([repeat([1], 12); repeat([2], 12); repeat([3], 12)], 2),
+                             repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
+
+        expected = [AnovaValue(     "Total", 30.355,       71),
+                    AnovaResult(        "A",  1.8175,       2,  0.90875,      24.475062,    2.71459995e-8),
+                    AnovaResult(        "B", 24.655833,     2, 12.3279167,   332.02369,     4.5550981e-31),
+                    AnovaResult(        "C",  0.008888889,  1,  0.008888889,   0.239401496, 0.62662035),
+                    AnovaResult(    "A × B",  1.10166667,   4,  0.27541667,    7.4177057,   7.7516681e-5),
+                    AnovaResult(    "A × C",  0.37027778,   2,  0.18513889,    4.9862843,   0.0102990988),
+                    AnovaResult(    "B × C",  0.17527778,   2,  0.08763889,    2.3603491,   0.104056404),
+                    AnovaResult("A × B × C",  0.220555556,  4,  0.055138889,   1.4850374,   0.21958095),
+                    AnovaFactor(    "Error",  2.005,       54,  0.03712963)]
+
         @testset "3-way ANOVA ordered" begin
-            observations = [1.9, 1.8, 1.6, 1.4,
-                            2.1, 2.0, 1.8, 2.2,
-                            1.1, 1.2, 1.0, 1.4,
-                            2.3, 2.1, 2.0, 2.6,
-                            2.4, 2.6, 2.7, 2.3,
-                            2.0, 2.1, 1.9, 2.2,
-                            2.9, 2.8, 3.4, 3.2,
-                            3.6, 3.1, 3.4, 3.2,
-                            2.9, 2.8, 3.0, 3.1,
-                            1.8, 1.7, 1.4, 1.5,
-                            2.3, 2.0, 1.9, 1.7,
-                            1.4, 1.0, 1.3, 1.2,
-                            2.4, 2.7, 2.4, 2.6,
-                            2.0, 2.3, 2.1, 2.4,
-                            2.4, 2.6, 2.3, 2.2,
-                            3.0, 3.1, 3.0, 2.7,
-                            3.1, 3.0, 2.8, 3.2,
-                            3.2, 2.9, 2.8, 2.9]
-
-            factorassignments = [[repeat([1], 36); repeat([2], 36)],
-                                 repeat([repeat([1], 12); repeat([2], 12); repeat([3], 12)], 2),
-                                 repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
-
-            expected = [AnovaValue(     "Total", 30.355,       71),
-                        AnovaResult(        "A",  1.8175,       2,  0.90875,      24.475062,    2.71459995e-8),
-                        AnovaResult(        "B", 24.655833,     2, 12.3279167,   332.02369,     4.5550981e-31),
-                        AnovaResult(        "C",  0.008888889,  1,  0.008888889,   0.239401496, 0.62662035),
-                        AnovaResult(    "A × B",  1.10166667,   4,  0.27541667,    7.4177057,   7.7516681e-5),
-                        AnovaResult(    "A × C",  0.37027778,   2,  0.18513889,    4.9862843,   0.0102990988),
-                        AnovaResult(    "B × C",  0.17527778,   2,  0.08763889,    2.3603491,   0.104056404),
-                        AnovaResult("A × B × C",  0.220555556,  4,  0.055138889,   1.4850374,   0.21958095),
-                        AnovaFactor(    "Error",  2.005,       54,  0.03712963)]
-
             results = anova(observations, factorassignments)
             @test all(expected .≈ results.effects)
+        end
+
+        @testset "3-way ANOVA shuffled" begin
+            randorder = [65,  6, 31, 70, 45,  2, 41, 59,  3, 39, 40, 47, 61, 55, 13, 68, 67, 25,
+                         60, 66, 44, 33, 42, 52, 56, 15, 49, 43, 69, 10, 51, 58, 19, 22,  8, 37,
+                         71, 23, 46, 24, 54, 53, 16, 18, 11, 32, 29, 35, 63, 34, 64, 62, 28, 72,
+                         30, 38, 17, 21,  9,  5, 50, 12,  7, 36, 48, 27, 14, 20,  4,  1, 57, 26]
+            shuffledobservations = observations[randorder]
+            shuffledfactorassignments = [fa[randorder] for fa ∈ factorassignments]
+
+            results = anova(shuffledobservations, shuffledfactorassignments)
+
+            @test all(expected .≈ results.effects)
+        end
+
+        @testset "3-way ANOVA tolerates nonconsecutive factor levels" begin
+            nonconsecutivefactorassignments = [fa .* 2 for fa ∈ factorassignments]
+            results = anova(observations, nonconsecutivefactorassignments)
+            @test all(expected .≈ results.effects)
+        end
+
+        @testset "2-way ANOVA rejects nested factor with exclusive levels" begin
+            factorlevels = factorassignments .|> unique .|> sort
+            nfactorlevels = length.(factorlevels)
+            nlevels = [nreplicates; nfactorlevels]
+            nestedfactorassignment = (repeat(1:4, Int(length(observations) / 4)) .+
+                                      sum([(factorassignments[i] .- 1) .* prod(nlevels[1:i]) for i ∈ 1:length(factorassignments)])) ./ 4 .|> ceil .|> Int
+            nestedfactorassignments = [[nestedfactorassignment]; factorassignments[2:3]]
+
+            @test_throws anova(observations, nestedfactorassignments, [nested])
         end
     end
 end

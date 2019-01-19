@@ -1,5 +1,6 @@
 using SimpleANOVA
 using Test
+using Random
 
 @testset "SimpleANOVA Tests" begin
 include("test_anova.jl")
