@@ -493,7 +493,7 @@
                                       sum([(factorassignments[i] .- 1) .* prod(nlevels[1:i]) for i ∈ 1:length(factorassignments)])) ./ 4 .|> ceil .|> Int
             nestedfactorassignments = [[nestedfactorassignment]; factorassignments[2:3]]
 
-            @test_throws anova(observations, nestedfactorassignments, [nested])
+            @test_throws Exception anova(observations, nestedfactorassignments, [nested])
         end
     end
 end
