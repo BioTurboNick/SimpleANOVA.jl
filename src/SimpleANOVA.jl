@@ -1,6 +1,6 @@
 module SimpleANOVA
 
-using Distributions
+using Distributions, Requires
 include("InvertedIndices.jl")
 include("AnovaEffect.jl")
 include("AnovaValue.jl")
@@ -14,9 +14,14 @@ const cellsname = "Cells"
 const errorname = "Error"
 const remaindername = "Remainder"
 
+function __init__()
+    @require DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0" include("anova_dataframes.jl")
+end
+
 """
     anova(observations::Union{Array{Number}, Array{Vector{Number}}}, factortypes = FactorType[]; factornames = String[], hasreplicates = true)
-    anova(observations::Vector{Number}, factorassignments::Vector{Vector{Int}}, factortypes = FactorType[]; factornames = String[], hasreplicates = true)
+    anova(observations::Vector{Number}, factorassignments::Vector{Vector{Any}}, factortypes = FactorType[]; factornames = String[], hasreplicates = true)
+    anova(df::DataFrame, observationscolumn::Symbol, factorcolumns::Vector{Symbol}, factortypes = FactorType[]; factornames = String[])
 
 Performs an Analysis of Variance (ANOVA) computation.
 
@@ -107,7 +112,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
 
-function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector{<:Int}}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
+function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
     length(observations) > 0 || return
     nfactors = length(factorassignments)
     N = length(observations)
@@ -122,7 +127,7 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     all(nperfactorlevel .|> length .== 1) || error("Design is unbalanced.")
     nperfactorlevel = nperfactorlevel .|> first
 
-    if any(maximum.(factorlevels) .> nfactorlevels)
+    if !(factorassignements <: Number) || any(maximum.(factorlevels) .> nfactorlevels)
         compressedfactorlevels = [1:i for i ∈ nfactorlevels]
         factorlevelremapping = [factorlevels[i] .=> compressedfactorlevels[i] for i ∈ 1:nfactors]
         factorassignments = [replace(factorassignments[i], factorlevelremapping[i]...) for i ∈ 1:nfactors]
@@ -134,7 +139,7 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
                          sum([factorassignments[i] .* prod(nlevels[1:i]) for i ∈ 1:nfactors]))
     observationsmatrix = reshape(observations[sortorder], nlevels...)
-    anova(observationsmatrix, factortypes, factornames = factornames)
+    anova(observationsmatrix, factortypes, factornames = factornames, hasreplicates = nreplicates > 1)
 end
 
 function validate(factortypes::Vector{FactorType}, factornames::Vector{<:AbstractString}, nfactors)

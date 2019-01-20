@@ -5,6 +5,7 @@ version = "0.2.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
