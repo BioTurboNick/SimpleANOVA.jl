@@ -127,7 +127,7 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     all(nperfactorlevel .|> length .== 1) || error("Design is unbalanced.")
     nperfactorlevel = nperfactorlevel .|> first
 
-    if !(factorassignments <: Number) || any(maximum.(factorlevels) .> nfactorlevels)
+    if !(isa(factorassignments, Number)) || any(maximum.(factorlevels) .> nfactorlevels)
         compressedfactorlevels = [1:i for i ∈ nfactorlevels]
         factorlevelremapping = [factorlevels[i] .=> compressedfactorlevels[i] for i ∈ 1:nfactors]
         factorassignments = [replace(factorassignments[i], factorlevelremapping[i]...) for i ∈ 1:nfactors]
