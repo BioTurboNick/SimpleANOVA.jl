@@ -1,6 +1,6 @@
 using SimpleANOVA
 using Test
-using Random
+using DataFrames
 
 @testset "SimpleANOVA Tests" begin
 include("test_anova.jl")
