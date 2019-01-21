@@ -19,7 +19,7 @@ function __init__()
 end
 
 """
-    anova(observations::Union{Array{Number}, Array{Vector{Number}}}, factortypes = FactorType[]; factornames = String[], hasreplicates = true)
+    anova(observations::Array{Union{Number, Vector{Number}}}, factortypes = FactorType[]; factornames = String[], hasreplicates = true)
     anova(observations::Vector{Number}, factorassignments::Vector{Vector{Any}}, factortypes = FactorType[]; factornames = String[], hasreplicates = true)
     anova(df::DataFrame, observationscolumn::Symbol, factorcolumns::Vector{Symbol}, factortypes = FactorType[]; factornames = String[])
 
@@ -100,7 +100,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
 
-function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector}, factortypes::Vector{FactorType} = FactorType[], factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
+function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
     length(observations) > 0 || return
     nfactors = length(factorassignments)
     N = length(observations)

@@ -5,5 +5,5 @@ function anova(df::DataFrame, observationscolumn::Symbol, factorcolumns::Vector{
     length(observations) > 0 || return
     eltype(observations) <: Number || error("Obervations must be numeric")
     isempty(factornames) && (factornames = [String(col) for col ∈ factorcolumns])
-    anova(df[observationscolumn], df[factorcolumns], factortypes, factornames = factornames)
+    anova(df[observationscolumn], [df[x] for x ∈ factorcolumns], factortypes, factornames = factornames)
 end

@@ -472,6 +472,12 @@
             @test all(expected .≈ results.effects)
         end
 
+        @testset "3-way ANOVA tolerates noninteger factor levels" begin
+            nonconsecutivefactorassignments = [fa .* 2 for fa ∈ factorassignments]
+            results = anova(observations, nonconsecutivefactorassignments)
+            @test all(expected .≈ results.effects)
+        end
+
         @testset "2-way ANOVA rejects nested factor with exclusive levels" begin
             factorlevels = factorassignments .|> unique .|> sort
             nfactorlevels = length.(factorlevels)
@@ -481,6 +487,37 @@
             nestedfactorassignments = [[nestedfactorassignment]; factorassignments[2:3]]
 
             @test_throws Exception anova(observations, nestedfactorassignments, [nested])
+        end
+    end
+
+    @testset "DataFrame" begin
+        using DataFrames
+
+        observations = [1.9, 1.8, 1.6, 1.4, 2.1, 2.0, 1.8, 2.2, 1.1, 1.2, 1.0, 1.4,
+                        2.3, 2.1, 2.0, 2.6, 2.4, 2.6, 2.7, 2.3, 2.0, 2.1, 1.9, 2.2,
+                        2.9, 2.8, 3.4, 3.2, 3.6, 3.1, 3.4, 3.2, 2.9, 2.8, 3.0, 3.1,
+                        1.8, 1.7, 1.4, 1.5, 2.3, 2.0, 1.9, 1.7, 1.4, 1.0, 1.3, 1.2,
+                        2.4, 2.7, 2.4, 2.6, 2.0, 2.3, 2.1, 2.4, 2.4, 2.6, 2.3, 2.2,
+                        3.0, 3.1, 3.0, 2.7, 3.1, 3.0, 2.8, 3.2, 3.2, 2.9, 2.8, 2.9]
+
+        factorassignments = [[repeat([1], 36); repeat([2], 36)],
+                             repeat([repeat([1], 12); repeat([2], 12); repeat([3], 12)], 2),
+                             repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
+
+        expected = [AnovaValue(                       "Total", 30.355,       71),
+                    AnovaResult(                    "FactorA",  1.8175,       2,  0.90875,      24.475062,    2.71459995e-8),
+                    AnovaResult(                    "FactorB", 24.655833,     2, 12.3279167,   332.02369,     4.5550981e-31),
+                    AnovaResult(                    "FactorC",  0.008888889,  1,  0.008888889,   0.239401496, 0.62662035),
+                    AnovaResult(          "FactorA × FactorB",  1.10166667,   4,  0.27541667,    7.4177057,   7.7516681e-5),
+                    AnovaResult(          "FactorA × FactorC",  0.37027778,   2,  0.18513889,    4.9862843,   0.0102990988),
+                    AnovaResult(          "FactorB × FactorC",  0.17527778,   2,  0.08763889,    2.3603491,   0.104056404),
+                    AnovaResult("FactorA × FactorB × FactorC",  0.220555556,  4,  0.055138889,   1.4850374,   0.21958095),
+                    AnovaFactor(                      "Error",  2.005,       54,  0.03712963)]
+
+        @testset "3-way ANOVA shuffled" begin
+            df = DataFrame([[observations]; factorassignments], [:observations; :FactorC; :FactorB; :FactorA])
+            results = anova(df, :observations, [:FactorC; :FactorB; :FactorA])
+            @test all(expected .≈ results.effects)
         end
     end
 end
