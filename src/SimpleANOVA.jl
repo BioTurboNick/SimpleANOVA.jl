@@ -23,25 +23,16 @@ end
     anova(observations::Vector{Number}, factorassignments::Vector{Vector{Any}}, factortypes = FactorType[]; factornames = String[], hasreplicates = true)
     anova(df::DataFrame, observationscolumn::Symbol, factorcolumns::Vector{Symbol}, factortypes = FactorType[]; factornames = String[])
 
-Performs an Analysis of Variance (ANOVA) computation.
+Performs an Analysis of Variance (ANOVA) calculation.
 
 Operates on up to 3 crossed factors (fixed or random) and arbitrarily many random nested factors, with or without
 replicates, on balanced data.
 
 # Arguments
-- `observations`: Array containing the values to test. For the array, each dimension is a factor level, such that observations[2,5,3] indicates
-the 2nd level of the first factor, the 5th level of the second factor, and the 3rd level of the third factor. May
-contain values or vectors of values, where the vector contains replicates. Factors should be ordered with least significant first.
-For the vector, must provide `factorassignments` to specify factor levels.
-- `factorassignments`: Vector of vectors of integers specifying how each observation is assigned to a factor level. Provide
-this when `observations` is given as a vector. Factor levels do not have to be consecutive or ordered. Nested factors must
-reuse factor levels currently.
-- `factortypes`: Vector indicating the `FactorType` for each factor. If present, `replicates` must appear first, any
-`nested` after, and then `random` or `fixed` in any order. Specify `replicates` if the first dimension of the
-`observations` matrix contains replicate values (vs. contained in vectors). If too few values are provided, remaining
-are assumed to be `fixed`.
-- `factornames`: Vector of names for each factor, excluding the replicate factor. If empty, will be automatically
-populated alphabetically.
+- `observations`: Array containing the values to test. For the array, each dimension is a factor level, such that observations[2,5,3] indicates the 2nd level of the first factor, the 5th level of the second factor, and the 3rd level of the third factor. May contain values or vectors of values, where the vector contains replicates. Factors should be ordered with least significant first. For the vector, must provide `factorassignments` to specify factor levels.
+- `factorassignments`: Vector of vectors of integers specifying how each observation is assigned to a factor level. Provide this when `observations` is given as a vector. Factor levels do not have to be consecutive or ordered. Nested factors must reuse factor levels currently.
+- `factortypes`: Vector indicating the `FactorType` for each factor. If present, `replicates` must appear first, any `nested` after, and then `random` or `fixed` in any order. Specify `replicates` if the first dimension of the `observations` matrix contains replicate values (vs. contained in vectors). If too few values are provided, remaining are assumed to be `fixed`.
+- `factornames`: Vector of names for each factor, excluding the replicate factor. If empty, will be automatically populated alphabetically.
 
 Notes: The last index will be the top factor in the table.
 
@@ -62,18 +53,15 @@ anova(observations, [nested, random])      # N-way fixed-effects ANOVA with 1 ra
 - factor: An independent variable.
 - factor level: A value of a factor.
 - balanced: All combinations of factor levels have the same number of observations.
-- crossed factor: When 2 or more factors are present, all combinations of factor levels have observations.
+- crossed factor: A factor with levels that combine with the levels of all other crossed factors.
 - fixed factor: A factor with fixed effects (e.g. treatment, concentration, exposure time).
 - random factor: A factor with random effects (e.g. location, individual).
 - nested factor: A random factor where the levels are unique to a combination of crossed factor levels (e.g. replicate).
 - sum of squares (SS): A measure of variance that is dependent on sample size. Also called "sum of squared deviations."
-- degree of freedom (DF, ν): The number of bins in which the values could have been moved, if random.
-- mean square (MS): SS / DF. Corrects for the larger variance expected if random values can be assigned to more bins.
-Also called "mean squared error" or "mean squared deviation."
-- F-statistic: The division of MS values produce a result belonging to the "F distribution", the shape of which depends
-on the DF of the numerator and denominator. The location of this value on the distribution provides the p-value.
-- p-value: The probability that, if all measurements had been drawn from the same population, you would obtain data
-at least as extreme as contained in your observations.
+- degrees of freedom (DF, ν): The number of bins in which the values could have been moved, if random.
+- mean square (MS): SS / DF. Corrects for the larger variance expected if random values can be assigned to more bins. Also called "mean squared error" or "mean squared deviation."
+- F-statistic: The division of MS values produce a result belonging to the "F distribution", the shape of which depends on the DF of the numerator and denominator. The location of this value on the distribution provides the p-value.
+- p-value: The probability that, if all measurements had been drawn from the same population, you would obtain data at least as extreme as contained in your observations.
 """
 function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return

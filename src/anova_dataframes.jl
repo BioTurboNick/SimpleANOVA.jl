@@ -1,3 +1,5 @@
+using .DataFrames
+
 function anova(df::DataFrame, observationscolumn::Symbol, factorcolumns::Vector{Symbol}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[])
     observations = df[observationscolumn]
     length(observations) > 0 || return
