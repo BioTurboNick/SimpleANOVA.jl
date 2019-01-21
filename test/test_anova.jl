@@ -473,8 +473,9 @@
         end
 
         @testset "3-way ANOVA tolerates noninteger factor levels" begin
-            nonconsecutivefactorassignments = [fa .* 2 for fa ∈ factorassignments]
-            results = anova(observations, nonconsecutivefactorassignments)
+            factorassignmentstrings = [repeat(["1"], 36); repeat(["2"], 36)]
+            stringsinfactorassignments = [[factorassignmentstrings]; factorassignments[2:3]]
+            results = anova(observations, stringsinfactorassignments)
             @test all(expected .≈ results.effects)
         end
 
