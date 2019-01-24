@@ -35,10 +35,22 @@ Performs the (Student-)Newman-Keuls multiple range posthoc test.
 
 Tends to be more powerful than Tukey, but some suggest it is more likely to lead to Type I error than intended.
 """
-snk(args...) = multiplerange(args...)
-studentnewmankeuls(args...) = multiplerange(args...)
-newmankeuls(args...) = multiplerange(args...)
-function multiplerange(anova::AnovaData)
+snk(args...) = newmankeulsmultiplerange(args...)
+studentnewmankeuls(args...) = newmankeulsmultiplerange(args...)
+newmankeuls(args...) = newmankeulsmultiplerange(args...)
+function newmankeulsmultiplerange(anova::AnovaData)
+end
+
+"""
+    dmr(anova::AnovaData)
+    duncan(anova::AnovaData)
+    duncanmultiplerange(anova::AnovaData)
+
+
+"""
+dmr(args...) = duncanmultiplerange(args...)
+duncan(args...) = duncanmultiplerange(args...)
+function duncanmultiplerange(anova::AnovaData)
 end
 
 """
@@ -64,7 +76,42 @@ end
 Performs the Dunnett method for comparing each factor level to a control group, and not all pairwise comparisons.
 """
 dunnett(args...) = controltoall(args...)
-function controltoall(anova::AnovaData)
+function controlcomparison(anova::AnovaData)
+end
+
+"""
+    bonferroni(anova::AnovaData)
+    dunn(anova::AnovaData)
+    bonferronicorrection(anova::AnovaData)
+
+Tests multiple comparisons using the Bonferroni p-value correction.
+"""
+bonferroni(args...) = bonferronicorrection(args...)
+dunn(args...) = bonferronicorrection(args...)
+function bonferronicorrection(anova::AnovaData)
+end
+
+"""
+    holmbonferroni(anova::AnovaData)
+    holm(anova::AnovaData)
+    holmbonferronicorrection(anova::AnovaData)
+
+Tests multiple comparisons using the Bonferroni p-value correction.
+"""
+holmbonferroni(args...) = holmbonferronicorrection(args...)
+holm(args...) = holmbonferronicorrection(args...)
+function holmbonferronicorrection(anova::AnovaData)
+end
+
+"""
+    lsd(anova::AnovaData)
+    leastsignificantdifference(anova::AnovaData)
+
+
+
+"""
+lsd(args...) = leastsignificantdifference(args...)
+function leastsignificantdifference(anova::AnovaData)
 end
 
 """
@@ -83,9 +130,25 @@ scheffe(args...) = multiplecontrasts(args...)
 function multiplecontrasts(anova::AnovaData)
 end
 
+"""
+    benjaminihochberg(anova::AnovaData)
+    fdr(anova::AnovaData)
+    falsediscoveryratecorrection(anova::AnovaData)
+"""
+benjaminihochberg(args...) = falsediscoveryratecorrection(args...)
+fdr(args...) = falsediscoveryratecorrection(args...)
+function falsediscoveryratecorrection(anova::AnovaData)
+end
+
+
 export pooled
 export tukey, hsd, honestlysignificantdifference, multiplecomparison
 export snk, studentnewmankeuls, newmankeuls, multiplerange
+export dmr, duncan, duncanmultiplerange
 export wsd, whollysignificantdifference, multiplecomparisonandrange
 export dunnett, controltoall
+export bonferroni, dunn, bonferronicorrection
+export holmbonferroni, holm, holmbonferronicorrection
+export lsd, leastsignificantdifference
 export s, scheffé, scheffe, multiplecontrasts
+export benjaminihochberg, fdr, falsediscoveryratecorrection
