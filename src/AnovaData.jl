@@ -3,8 +3,12 @@
 
 Container for the complete results of an ANOVA test.
 """
-mutable struct AnovaData
+mutable struct AnovaData{T<:Number}
     effects::Vector{AnovaEffect}
+    crossedfactors::Vector{AnovaFactor}
+    crossedfactorsdenominators::Vector{AnovaFactor}
+    cellmeans::Array{T}
+    npercell::Int
 end
 
 import Base.show
