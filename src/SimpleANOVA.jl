@@ -183,17 +183,6 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     return data
 end
 
-"""
-    plot(anova::AnovaData)
-
-Creates factor plots for ANOVA data.
-
-Enables inspection of ANOVA for the effect size of interactions and relationships between factor levels.
-
-Currently limited to 2 factors.
-"""
-plot(anova::AnovaData) = error("Please import Plots to use this function.")
-
 function sumfirstdim(observations::T) where {T <: AbstractArray{<:AbstractVector}}
     map(sumfirstdim, observations)
 end
@@ -422,6 +411,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-export anova, ftest
+export anova, ftest, plot
 
 end

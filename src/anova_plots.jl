@@ -1,6 +1,16 @@
 using .Plots
 
+
 import .Plots.plot
+"""
+    plot(anova::AnovaData)
+
+Creates factor plots for ANOVA data.
+
+Enables inspection of ANOVA for the effect size of interactions and relationships between factor levels.
+
+Currently limited to 2 factors. Reference Plots package to use this.
+"""
 function plot(anova::AnovaData)
     nfactors = length(anova.crossedfactors)
     if nfactors > 2
