@@ -1,7 +1,7 @@
 name = "SimpleANOVA"
 uuid = "fff527a3-8410-504e-9ca3-60d5e79bb1e4"
 authors = ["Nicholas Bauer <nicholasbauer@outlook.com>"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -9,6 +9,7 @@ Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 
 [extras]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]

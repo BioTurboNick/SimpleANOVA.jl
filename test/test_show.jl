@@ -5,7 +5,7 @@
                 AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
                 AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
                 AnovaFactor(    "C",  366.372,  16,   22.89825)]
-        result = AnovaData(data)
+        result = AnovaData(data, AnovaFactor[], AnovaFactor[], Float64[], 1)
         expectedlines = ["",
                          "Analysis of Variance Results",
                          "",
