@@ -20,13 +20,16 @@ function plot(anova::AnovaData)
     plots = Array{Plots.Plot, 2}(undef, nfactors, nfactors)
     for i in 1:nfactors
         otherfactorindexes = (1:nfactors)[Not(i)]
+        factormidpoint = (1 + nfactorlevels[i]) / 2
+        factormeans = [mean(anova.cellmeans, dims = (1:nfactors)[Not(i)]) |> vec for i = 1:nfactors]
         for jindex in 1:(nfactors - 1)
             j = otherfactorindexes[jindex]
-            factormeans = mean(anova.cellmeans, dims = otherfactorindexes[Not(jindex)])
-            plots[i,j] = plot([selectdim(factormeans, j, k) |> vec for k = 1:nfactorlevels[j]], legend = false)
+            pairfactormeans = mean(anova.cellmeans, dims = otherfactorindexes[Not(jindex)])
+            plots[i,j] = plot([selectdim(pairfactormeans, j, k) |> vec for k = 1:nfactorlevels[j]], legend = false)
+            scatter!(factormeans[i])
         end
         plots[i,i] = plot()
-        factormidpoint = (1 + nfactorlevels[i]) / 2
+
     end
     plot(plots..., layout = (nfactors, nfactors))
 #=
