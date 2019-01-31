@@ -11,19 +11,62 @@ function pooled(anova::AnovaData)
 
 end
 
+#=
+Factor A
+   1       2       3       4       5
+28.2    39.6    46.3    41.0    56.3
+33.2    40.8    42.1    44.1    54.1
+36.4    37.9    43.5    46.4    59.4
+34.6    37.1    48.8    40.2    62.7
+29.1    43.6    43.7    38.6    60.0
+31.0    42.4    40.1    36.3    57.3
+
+observations = [28.2 39.6 46.3 41.0 56.3;
+                33.2 40.8 42.1 44.1 54.1;
+                36.4 37.9 43.5 46.4 59.4;
+                34.6 37.1 48.8 40.2 62.7;
+                29.1 43.6 43.7 38.6 60.0;
+                31.0 42.4 40.1 36.3 57.3]
+
+=#
+
 """
-    tukey(anova::AnovaData)
-    hsd(anova::AnovaData)
-    honestlysignificantdifference(anova::AnovaData)
-    multiplecomparison(anova::AnovaData)
+    tukey(anova::AnovaData, α)
+    hsd(anova::AnovaData, α)
+    honestlysignificantdifference(anova::AnovaData, α)
+    multiplecomparison(anova::AnovaData, α)
 
 Performs the Tukey multiple comparisons posthoc test.
+
+NOTE: While this method calculates the p-values for each comparison and ranks the means, the Tukey procecure requires ignoring p-values from further tests once non-significane is found.
+For example:
+If you have 5 levels ranked by mean, and you test 5 vs 1, 5 vs 2, 5 vs 3, and find that 5 vs 3 is non-significant, this is sufficient to conclude that 5 = 4 = 3, and thus do not test 5 vs 4 or 4 vs 3.
+
+If the test concludes that a level is equal to two adjacent levels but those levels are not equal to each other, it is considered to be ambiguous as to which group it belongs to.
+
+As this test is less powerful than ANOVA, it is possible for ANOVA to find a significant effect but this test finds that all levels are equal.
 """
 tukey(args...) = multiplecomparison(args...)
 hsd(args...) = multiplecomparison(args...)
 honestlysignificantdifference(args...) = multiplecomparison(args...)
 function multiplecomparison(anova::AnovaData)
+    nfactors = length(anova.crossedfactors)
+    i = 1
+    #for i = 1:nfactors
+        factoreffect = anova.crossedfactors[i]
+        nfactorlevels = size(anova.cellmeans, i)
+        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
+        df = anova.crossedfactorsdenominators[i].df
+        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
+        diff = abs.(factormeans .- factormeans')
+        q = diff ./ se
+        p = srdistccdf.(df, nfactorlevels, q)
+    #end
 end
+
+import Rmath: libRmath
+srdistccdf(ν, k, x) = ccall((:ptukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
+srdistinvccdf(ν, k, x) = ccall((:qtukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
 
 """
     snk(anova::AnovaData)
@@ -39,6 +82,19 @@ snk(args...) = newmankeulsmultiplerange(args...)
 studentnewmankeuls(args...) = newmankeulsmultiplerange(args...)
 newmankeuls(args...) = newmankeulsmultiplerange(args...)
 function newmankeulsmultiplerange(anova::AnovaData)
+    # same as tukey but uses k = number of means across which it's being tested, e.g. if means are ranked 1,2,3,4,5 and means 5 and 2 are compared, there are 4 means
+    nfactors = length(anova.crossedfactors)
+    i = 1
+    #for i = 1:nfactors
+        factoreffect = anova.crossedfactors[i]
+        nfactorlevels = size(anova.cellmeans, i)
+        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
+        df = anova.crossedfactorsdenominators[i].df
+        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
+        diff = abs.(factormeans .- factormeans')
+        q = diff ./ se
+        p = srdistccdf.(df, abs.((1:nfactorlevels) .- (1:nfactorlevels)') .+ 1, q)
+    #end
 end
 
 """
@@ -67,6 +123,19 @@ Note: Tukey's test has sometimes been referred to as "wholly significant differe
 wsd(args...) = multiplecomparisonandrange(args...)
 whollysignificantdifference(args...) = multiplecomparisonandrange(args...)
 function multiplecomparisonandrange(anova::AnovaData)
+    # average of tukey and snk critical values
+    nfactors = length(anova.crossedfactors)
+    i = 1
+    #for i = 1:nfactors
+        factoreffect = anova.crossedfactors[i]
+        nfactorlevels = size(anova.cellmeans, i)
+        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
+        df = anova.crossedfactorsdenominators[i].df
+        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
+        diff = abs.(factormeans .- factormeans')
+        q = diff ./ se
+        p = srdistccdf.(df, (nfactorlevels .+ abs.((1:nfactorlevels) .- (1:nfactorlevels)') .+ 1) ./ 2, q)
+    #end
 end
 
 """
@@ -77,6 +146,7 @@ Performs the Dunnett method for comparing each factor level to a control group, 
 """
 dunnett(args...) = controltoall(args...)
 function controlcomparison(anova::AnovaData)
+    # distribution is complicated and not standard
 end
 
 """
@@ -89,6 +159,19 @@ Tests multiple comparisons using the Bonferroni p-value correction.
 bonferroni(args...) = bonferronicorrection(args...)
 dunn(args...) = bonferronicorrection(args...)
 function bonferronicorrection(anova::AnovaData)
+    # use t distribution but alpha / m where m = number of comparisons as the critical factor, I think.
+    nfactors = length(anova.crossedfactors)
+    i = 1
+    #for i = 1:nfactors
+        factoreffect = anova.crossedfactors[i]
+        nfactorlevels = size(anova.cellmeans, i)
+        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
+        df = anova.crossedfactorsdenominators[i].df
+        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
+        diff = abs.(factormeans .- factormeans')
+        q = diff ./ se
+        p = srdistccdf.(df, (nfactorlevels .+ abs.((1:nfactorlevels) .- (1:nfactorlevels)') .+ 1) ./ 2, q)
+    #end
 end
 
 """
