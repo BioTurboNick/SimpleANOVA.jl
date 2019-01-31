@@ -19,8 +19,11 @@ function plot(anova::AnovaData)
     nfactorlevels = size(anova.cellmeans)
     plots = Array{Plots.Plot, 2}(undef, nfactors, nfactors)
     for i in 1:nfactors
-        for j in (1:nfactors)[Not(i)]
-            plots[i,j] = plot([selectdim(anova.cellmeans, j, k) for k = 1:nfactorlevels[j]], legend = false)
+        otherfactorindexes = (1:nfactors)[Not(i)]
+        for jindex in 1:(nfactors - 1)
+            j = otherfactorindexes[jindex]
+            factormeans = mean(anova.cellmeans, dims = otherfactorindexes[Not(jindex)])
+            plots[i,j] = plot([selectdim(factormeans, j, k) |> vec for k = 1:nfactorlevels[j]], legend = false)
         end
         plots[i,i] = plot()
         factormidpoint = (1 + nfactorlevels[i]) / 2
