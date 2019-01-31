@@ -1,6 +1,5 @@
 using .Plots
 
-
 import .Plots.plot
 """
     plot(anova::AnovaData)
@@ -34,14 +33,4 @@ function plot(anova::AnovaData)
 
     end
     plot(plots..., layout = (nfactors, nfactors))
-#=
-    factormeans = [mean(anova.cellmeans, dims = (1:nfactors)[Not(i)]) |> vec for i = 1:nfactors]
-
-
-    plot!(factormeans, layout = (nfactors, nfactors), seriestype=:scatter)
-    plot!(repeat([factormidpoint], nfactorlevels), factormeans[2]', seriestype=:scatter)
-
-    plot!(factormeans[1], seriestype=:scatter)
-    plot!(repeat([factorAmidpoint], nfactorlevels[2]), factormeans[2], seriestype=:scatter)
-    =#
 end
