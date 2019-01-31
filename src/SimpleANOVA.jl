@@ -176,7 +176,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     npercell = nreplicates * prod(nnestedfactorlevels)
     nestedmeans = nestedsums ./ npercell
-    data = AnovaData([total; results], crossedfactors, denominators[1 .+ (1:ncrossedfactors)], nestedmeans, npercell)
+    data = AnovaData([total; results], crossedfactors, denominators[1:ncrossedfactors], nestedmeans, npercell)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 
