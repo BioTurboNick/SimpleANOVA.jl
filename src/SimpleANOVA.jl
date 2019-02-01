@@ -151,11 +151,11 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
     C = sum(cellsums) ^ 2 / N
     total = totalcalc(observations, N, C)
-    amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
+    amongallnested, crossedcellsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
     cells = cellscalc(cellsums, nreplicates, ncells, C)
 
-    crossedfactors = factorscalc(nestedsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames) # 3kb allocated here, possibly can't be avoided
-    interactions, interactionsmap = interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames) # 9 kb allocated here!
+    crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames) # 3kb allocated here, possibly can't be avoided
+    interactions, interactionsmap = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames) # 9 kb allocated here!
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
     error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates)
 
@@ -174,9 +174,9 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     # perform test
     results = ftest.(numerators, denominators)
 
-    npercell = nreplicates * prod(nnestedfactorlevels)
-    nestedmeans = nestedsums ./ npercell
-    data = AnovaData([total; results], crossedfactors, denominators[1:ncrossedfactors], nestedmeans, npercell)
+    npercrossedcell = nreplicates * prod(nnestedfactorlevels)
+    crossedcellmeans = crossedcellsums ./ npercrossedcell
+    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 

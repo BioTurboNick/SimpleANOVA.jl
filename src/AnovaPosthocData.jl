@@ -1,27 +1,25 @@
 """
-    AnovaData
+    AnovaPosthocData
 
-Container for the complete results of an ANOVA test.
+Container for the complete results of a posthoc analysis following ANOVA.
 """
-mutable struct AnovaData
-    effects::Vector{AnovaEffect}
-    total::AnovaValue
-    ncrossedfactors::Int
-    ncrossedfactorlevels::Vector{Int}
-    npercrossedcell::Int
-    crossedfactors::Vector{AnovaFactor}
-    crossedfactorsdenominators::Vector{AnovaFactor}
-    crossedcellmeans::Array{Float64}
+mutable struct AnovaPosthocData
+    anova::AnovaData
+    comparisons::Vector{AnovaPosthocFactor}
 end
 
-Broadcast.broadcastable(a::T) where {T <: AnovaData} = (a,) # workaround for current behavior
-
-import Statistics.mean
-mean(anova::AnovaData, factor) = mean(anova.crossedcellmeans, dims = (1:anova.ncrossedfactors)[Not(factor)]) |> vec
+Broadcast.broadcastable(a::T) where {T <: AnovaPosthocData} = (a,) # workaround for current behavior
 
 import Base.show
-function show(io::IO, ad::AnovaData)
-    colnames = ["Effect", "SS", "DF", "MS", "F", "p"]
+function show(io::IO, apd::AnovaPosthocData)
+    colnames = ["Effect", "Δ", "DF", "SE", "q", "p"]
+    for factor ∈ apd.comparisons
+        println(factor.name)
+        for comparison ∈ factor.comparisons
+            println(comparison)
+        end
+    end
+    #=
     rownames = [e.name for e ∈ ad.effects]
     nrows = length(ad.effects)
 
@@ -65,6 +63,7 @@ function show(io::IO, ad::AnovaData)
     println(io, headerrow)
     println(io, separator)
     foreach(i -> println(io, rows[i]), 1:length(rows))
+    =#
 end
 
-export AnovaData
+export AnovaPosthocData

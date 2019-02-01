@@ -1,3 +1,7 @@
+include("AnovaPosthocComparison.jl")
+include("AnovaPosthocFactor.jl")
+include("AnovaPosthocData.jl")
+
 """
     pooled(anova::AnovaData)
 
@@ -50,18 +54,23 @@ tukey(args...) = multiplecomparison(args...)
 hsd(args...) = multiplecomparison(args...)
 honestlysignificantdifference(args...) = multiplecomparison(args...)
 function multiplecomparison(anova::AnovaData)
-    nfactors = length(anova.crossedfactors)
-    i = 1
-    #for i = 1:nfactors
-        factoreffect = anova.crossedfactors[i]
-        nfactorlevels = size(anova.cellmeans, i)
-        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
-        df = anova.crossedfactorsdenominators[i].df
-        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
-        diff = abs.(factormeans .- factormeans')
-        q = diff ./ se
-        p = srdistccdf.(df, nfactorlevels, q)
-    #end
+    nfactors = anova.ncrossedfactors
+    nfactorlevels = anova.ncrossedfactorlevels |> reverse
+
+    factormeans = mean.(anova, 1:nfactors) |> reverse!
+    df = [f.df for f ∈ anova.crossedfactorsdenominators]
+    ms = [f.ms for f ∈ anova.crossedfactorsdenominators]
+    se = sqrt.(ms ./ anova.npercrossedcell)
+    diffs = [abs.(f .- f') for f ∈ factormeans]
+    q = diffs ./ se
+    p = [srdistccdf.(df[i], nfactorlevels[i], q[i]) for i ∈ 1:nfactors]
+
+    comparisons = [[AnovaPosthocComparison((i,j), diffs[k][i,j], df[k], se[k], q[k][i,j], p[k][i,j]) for j ∈ 1:nfactorlevels[k]
+                                                                                                     for i ∈ (j + 1):nfactorlevels[k]]
+                                                                                                     for k ∈ 1:nfactors]
+    factorcomparisons = [AnovaPosthocFactor(anova.crossedfactors[i].name, comparisons[i]) for i ∈ 1:nfactors]
+
+    return AnovaPosthocData(anova, factorcomparisons)
 end
 
 import Rmath: libRmath
