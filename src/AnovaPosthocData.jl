@@ -5,65 +5,62 @@ Container for the complete results of a posthoc analysis following ANOVA.
 """
 mutable struct AnovaPosthocData
     anova::AnovaData
-    comparisons::Vector{AnovaPosthocFactor}
+    factorcomparisons::Vector{AnovaPosthocFactor}
 end
 
 Broadcast.broadcastable(a::T) where {T <: AnovaPosthocData} = (a,) # workaround for current behavior
 
 import Base.show
 function show(io::IO, apd::AnovaPosthocData)
-    colnames = ["Effect", "Δ", "DF", "SE", "q", "p"]
-    for factor ∈ apd.comparisons
-        println(factor.name)
-        for comparison ∈ factor.comparisons
-            println(comparison)
-        end
+    colnames = ["Levels", "Δ", "DF", "SE", "q", "p"]
+
+    println(io)
+    println(io, "Posthoc Comparison Results")
+    println(io)
+
+    for factorcomparisons ∈ apd.factorcomparisons
+        println(factorcomparisons.name)
+        rownames = [join(c.levels, "×") for c ∈ factorcomparisons.comparisons]
+        nrows = length(factorcomparisons.comparisons)
+
+        compactshow(x) = sprint(show, x, context=:compact=>true)
+
+        differences = [c.difference |> compactshow for c ∈ factorcomparisons.comparisons]
+        df = [c.df |> Int |> compactshow for c ∈ factorcomparisons.comparisons]
+        se = [c.se |> compactshow for c ∈ factorcomparisons.comparisons]
+        q = [c.q |> compactshow for c ∈ factorcomparisons.comparisons]
+        p = [c.p |> compactshow for c ∈ factorcomparisons.comparisons]
+
+        ndec = [length.(last.(split.(values, "."))) for values ∈ [differences, se, q, p]]
+        maxndec = maximum.(ndec)
+        rpadding = [maxndec[i] .- ndec[i] for i ∈ 1:4]
+
+        differences = [rpad(differences[i], rpadding[1][i] + length(differences[i])) for i ∈ 1:nrows]
+        se = [rpad(se[i], rpadding[2][i] + length(se[i])) for i ∈ 1:nrows]
+        q = [rpad(q[i], rpadding[3][i] + length(q[i])) for i ∈ 1:nrows]
+        p = [rpad(p[i], rpadding[4][i] + length(p[i])) for i ∈ 1:nrows]
+
+        colwidths = [length.(values) |> maximum for values ∈ [[colnames[1]; rownames],
+                                                              [colnames[2]; differences],
+                                                              [colnames[3]; df],
+                                                              [colnames[4]; se],
+                                                              [colnames[5]; q],
+                                                              [colnames[6]; p]]]
+        colwidths[2:end] .+= 2
+
+        headerrow = join(lpad.(colnames, colwidths))
+        separator = repeat("-", sum(colwidths))
+        rows = [lpad(rownames[i], colwidths[1]) *
+                lpad(differences[i], colwidths[2]) *
+                lpad(df[i], colwidths[3]) *
+                lpad(se[i], colwidths[4]) *
+                lpad(q[i], colwidths[5]) *
+                lpad(p[i], colwidths[6]) for i ∈ 1:nrows]
+
+        println(io, headerrow)
+        println(io, separator)
+        foreach(i -> println(io, rows[i]), 1:length(rows))
     end
-    #=
-    rownames = [e.name for e ∈ ad.effects]
-    nrows = length(ad.effects)
-
-    compactshow(x) = sprint(show, x, context=:compact=>true)
-
-    ss = [e.ss |> compactshow for e ∈ ad.effects]
-    df = [e.df |> Int |> compactshow for e ∈ ad.effects]
-    ms = [typeof(e) ∈ [AnovaFactor, AnovaResult] ? e.ms |> compactshow  : "" for e ∈ ad.effects]
-    f = [e isa AnovaResult ? e.f |> compactshow : "" for e ∈ ad.effects]
-    p = [e isa AnovaResult ? e.p |> compactshow : "" for e ∈ ad.effects]
-
-    ndec = [length.(last.(split.(values, "."))) for values ∈ [ss, ms, f, p]]
-    maxndec = maximum.(ndec)
-    rpadding = [maxndec[i] .- ndec[i] for i ∈ 1:4]
-
-    ss = [rpad(ss[i], rpadding[1][i] + length(ss[i])) for i ∈ 1:nrows]
-    ms = [rpad(ms[i], rpadding[2][i] + length(ms[i])) for i ∈ 1:nrows]
-    f = [rpad(f[i], rpadding[3][i] + length(f[i])) for i ∈ 1:nrows]
-    p = [rpad(p[i], rpadding[4][i] + length(p[i])) for i ∈ 1:nrows]
-
-    colwidths = [length.(values) |> maximum for values ∈ [[colnames[1]; rownames],
-                                                          [colnames[2]; ss],
-                                                          [colnames[3]; df],
-                                                          [colnames[4]; ms],
-                                                          [colnames[5]; f],
-                                                          [colnames[6]; p]]]
-    colwidths[2:end] .+= 2
-
-    headerrow = join(lpad.(colnames, colwidths))
-    separator = repeat("-", sum(colwidths))
-    rows = [lpad(rownames[i], colwidths[1]) *
-            lpad(ss[i], colwidths[2]) *
-            lpad(df[i], colwidths[3]) *
-            lpad(ms[i], colwidths[4]) *
-            lpad(f[i], colwidths[5]) *
-            lpad(p[i], colwidths[6]) for i ∈ 1:nrows]
-
-    println(io)
-    println(io, "Analysis of Variance Results")
-    println(io)
-    println(io, headerrow)
-    println(io, separator)
-    foreach(i -> println(io, rows[i]), 1:length(rows))
-    =#
 end
 
 export AnovaPosthocData
