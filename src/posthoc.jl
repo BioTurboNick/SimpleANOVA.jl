@@ -15,24 +15,7 @@ function pooled(anova::AnovaData)
 
 end
 
-#=
-Factor A
-   1       2       3       4       5
-28.2    39.6    46.3    41.0    56.3
-33.2    40.8    42.1    44.1    54.1
-36.4    37.9    43.5    46.4    59.4
-34.6    37.1    48.8    40.2    62.7
-29.1    43.6    43.7    38.6    60.0
-31.0    42.4    40.1    36.3    57.3
 
-observations = [28.2 39.6 46.3 41.0 56.3;
-                33.2 40.8 42.1 44.1 54.1;
-                36.4 37.9 43.5 46.4 59.4;
-                34.6 37.1 48.8 40.2 62.7;
-                29.1 43.6 43.7 38.6 60.0;
-                31.0 42.4 40.1 36.3 57.3]
-
-=#
 
 """
     tukey(anova::AnovaData, α)
@@ -55,20 +38,35 @@ hsd(args...) = multiplecomparison(args...)
 honestlysignificantdifference(args...) = multiplecomparison(args...)
 multiplecomparison(anova::AnovaData) = multiplecomparisonkernel(anova, tukeygroups, "Tukey HSD")
 
-tukeygroups(nfactorlevels::Vector{Int}) = nfactorlevels
-function snkgroups(nfactorlevels::Vector{Int})
-    factorlevels = range.(1, nfactorlevels)
-    return [abs.(l .- l') .+ 1 for l ∈ factorlevels]
-end
-function wsdgroups(nfactorlevels::Vector{Int})
-    ngroups1 = snkgroups(nfactorlevels)
-    ngroups2 = tukeygroups(nfactorlevels)
-    return [(ngroups1[i] .+ ngroups2[i]) ./ 2 for i ∈ 1:length(nfactorlevels)]
-end
+"""
+    snk(anova::AnovaData)
+    studentnewmankeuls(anova::AnovaData)
+    newmankeuls(anova::AnovaData)
+    multiplerange(anova::AnovaData)
 
-import Rmath: libRmath
-srdistccdf(ν, k, x) = ccall((:ptukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
-srdistinvccdf(ν, k, x) = ccall((:qtukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
+Performs the (Student-)Newman-Keuls multiple range posthoc test.
+
+Tends to be more powerful than Tukey, but some suggest it is more likely to lead to Type I error than intended.
+"""
+snk(args...) = newmankeulsmultiplerange(args...)
+studentnewmankeuls(args...) = newmankeulsmultiplerange(args...)
+newmankeuls(args...) = newmankeulsmultiplerange(args...)
+newmankeulsmultiplerange(anova::AnovaData) = multiplecomparisonkernel(anova, snkgroups, "Newman-Keuls")
+
+"""
+    wsd(anova::AnovaData)
+    whollysignificantdifference(anova::AnovaData)
+    multiplecomparisonandrange(anova::AnovaData)
+
+Performs a compromise test between Tukey and (Student-)Newman-Keuls.
+
+Computes the critical values for both tests and uses the mean.
+
+Note: Tukey's test has sometimes been referred to as "wholly significant difference test" as well.
+"""
+wsd(args...) = multiplecomparisonandrange(args...)
+whollysignificantdifference(args...) = multiplecomparisonandrange(args...)
+multiplecomparisonandrange(anova::AnovaData) = multiplecomparisonkernel(anova, wsdgroups, "WSD")
 
 function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, type::String)
     nfactors = anova.ncrossedfactors
@@ -92,20 +90,27 @@ function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, type::String)
     return AnovaPosthocData(anova, factorcomparisons, type)
 end
 
-"""
-    snk(anova::AnovaData)
-    studentnewmankeuls(anova::AnovaData)
-    newmankeuls(anova::AnovaData)
-    multiplerange(anova::AnovaData)
+tukeygroups(nfactorlevels::Vector{Int}) = nfactorlevels
+function snkgroups(nfactorlevels::Vector{Int})
+    factorlevels = range.(1, nfactorlevels)
+    return [abs.(l .- l') .+ 1 for l ∈ factorlevels]
+end
+function wsdgroups(nfactorlevels::Vector{Int})
+    ngroups1 = snkgroups(nfactorlevels)
+    ngroups2 = tukeygroups(nfactorlevels)
+    return [(ngroups1[i] .+ ngroups2[i]) ./ 2 for i ∈ 1:length(nfactorlevels)]
+end
 
-Performs the (Student-)Newman-Keuls multiple range posthoc test.
+import Rmath: libRmath
+srdistccdf(ν, k, x) = ccall((:ptukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
+srdistinvccdf(ν, k, x) = ccall((:qtukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
 
-Tends to be more powerful than Tukey, but some suggest it is more likely to lead to Type I error than intended.
-"""
-snk(args...) = newmankeulsmultiplerange(args...)
-studentnewmankeuls(args...) = newmankeulsmultiplerange(args...)
-newmankeuls(args...) = newmankeulsmultiplerange(args...)
-newmankeulsmultiplerange(anova::AnovaData) = multiplecomparisonkernel(anova, snkgroups, "Newman-Keuls")
+
+
+
+
+
+
 
 """
     dmr(anova::AnovaData)
@@ -119,21 +124,6 @@ duncan(args...) = duncanmultiplerange(args...)
 function duncanmultiplerange(anova::AnovaData)
     error("Not implemented")
 end
-
-"""
-    wsd(anova::AnovaData)
-    whollysignificantdifference(anova::AnovaData)
-    multiplecomparisonandrange(anova::AnovaData)
-
-Performs a compromise test between Tukey and (Student-)Newman-Keuls.
-
-Computes the critical values for both tests and uses the mean.
-
-Note: Tukey's test has sometimes been referred to as "wholly significant difference test" as well.
-"""
-wsd(args...) = multiplecomparisonandrange(args...)
-whollysignificantdifference(args...) = multiplecomparisonandrange(args...)
-multiplecomparisonandrange(anova::AnovaData) = multiplecomparisonkernel(anova, wsdgroups, "WSD")
 
 """
     dunnett(anova::AnovaData)
@@ -158,18 +148,7 @@ bonferroni(args...) = bonferronicorrection(args...)
 dunn(args...) = bonferronicorrection(args...)
 function bonferronicorrection(anova::AnovaData)
     # use t distribution but alpha / m where m = number of comparisons as the critical factor, I think.
-    nfactors = length(anova.crossedfactors)
-    i = 1
-    #for i = 1:nfactors
-        factoreffect = anova.crossedfactors[i]
-        nfactorlevels = size(anova.cellmeans, i)
-        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
-        df = anova.crossedfactorsdenominators[i].df
-        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
-        diff = abs.(factormeans .- factormeans')
-        q = diff ./ se
-        p = srdistccdf.(df, (nfactorlevels .+ abs.((1:nfactorlevels) .- (1:nfactorlevels)') .+ 1) ./ 2, q)
-    #end
+    error("Not implemented")
 end
 
 """
@@ -182,6 +161,7 @@ Tests multiple comparisons using the Bonferroni p-value correction.
 holmbonferroni(args...) = holmbonferronicorrection(args...)
 holm(args...) = holmbonferronicorrection(args...)
 function holmbonferronicorrection(anova::AnovaData)
+    error("Not implemented")
 end
 
 """
