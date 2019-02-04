@@ -6,6 +6,7 @@ Container for the complete results of a posthoc analysis following ANOVA.
 mutable struct AnovaPosthocData
     anova::AnovaData
     factorcomparisons::Vector{AnovaPosthocFactor}
+    type::String
 end
 
 Broadcast.broadcastable(a::T) where {T <: AnovaPosthocData} = (a,) # workaround for current behavior
@@ -15,7 +16,7 @@ function show(io::IO, apd::AnovaPosthocData)
     colnames = ["Levels", "Δ", "DF", "SE", "q", "p"]
 
     println(io)
-    println(io, "Posthoc Comparison Results")
+    println(io, "Posthoc Comparison Results: " * apd.type)
     println(io)
 
     for factorcomparisons ∈ apd.factorcomparisons
