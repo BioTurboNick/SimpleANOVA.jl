@@ -42,7 +42,7 @@ observations = [28.2 39.6 46.3 41.0 56.3;
 
 Performs the Tukey multiple comparisons posthoc test.
 
-NOTE: While this method calculates the p-values for each comparison and ranks the means, the Tukey procecure requires ignoring p-values from further tests once non-significane is found.
+NOTE: While this method calculates the p-values for each comparison, the Tukey procecure requires ignoring p-values from further tests between intermediate pairs once a non-significant one is found.
 For example:
 If you have 5 levels ranked by mean, and you test 5 vs 1, 5 vs 2, 5 vs 3, and find that 5 vs 3 is non-significant, this is sufficient to conclude that 5 = 4 = 3, and thus do not test 5 vs 4 or 4 vs 3.
 
@@ -53,9 +53,27 @@ As this test is less powerful than ANOVA, it is possible for ANOVA to find a sig
 tukey(args...) = multiplecomparison(args...)
 hsd(args...) = multiplecomparison(args...)
 honestlysignificantdifference(args...) = multiplecomparison(args...)
-function multiplecomparison(anova::AnovaData)
+multiplecomparison(anova::AnovaData) = multiplecomparisonkernel(anova, tukeygroups, "Tukey HSD")
+
+tukeygroups(nfactorlevels::Vector{Int}) = nfactorlevels
+function snkgroups(nfactorlevels::Vector{Int})
+    factorlevels = range.(1, nfactorlevels)
+    return [abs.(l .- l') .+ 1 for l ∈ factorlevels]
+end
+function wsdgroups(nfactorlevels::Vector{Int})
+    ngroups1 = snkgroups(nfactorlevels)
+    ngroups2 = tukeygroups(nfactorlevels)
+    return [(ngroups1[i] .+ ngroups2[i]) ./ 2 for i ∈ 1:length(nfactorlevels)]
+end
+
+import Rmath: libRmath
+srdistccdf(ν, k, x) = ccall((:ptukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
+srdistinvccdf(ν, k, x) = ccall((:qtukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
+
+function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, type::String)
     nfactors = anova.ncrossedfactors
     nfactorlevels = anova.ncrossedfactorlevels |> reverse
+    ngroups = ngroupsfunc(nfactorlevels)
 
     factormeans = mean.(anova, 1:nfactors) |> reverse!
     df = [f.df for f ∈ anova.crossedfactorsdenominators]
@@ -63,19 +81,16 @@ function multiplecomparison(anova::AnovaData)
     se = sqrt.(ms ./ anova.npercrossedcell)
     diffs = [abs.(f .- f') for f ∈ factormeans]
     q = diffs ./ se
-    p = [srdistccdf.(df[i], nfactorlevels[i], q[i]) for i ∈ 1:nfactors]
+
+    p = [srdistccdf.(df[i], ngroups[i], q[i]) for i ∈ 1:nfactors]
 
     comparisons = [[AnovaPosthocComparison((i,j), diffs[k][i,j], df[k], se[k], q[k][i,j], p[k][i,j]) for j ∈ 1:nfactorlevels[k]
                                                                                                      for i ∈ (j + 1):nfactorlevels[k]]
                                                                                                      for k ∈ 1:nfactors]
     factorcomparisons = [AnovaPosthocFactor(anova.crossedfactors[i].name, comparisons[i]) for i ∈ 1:nfactors]
 
-    return AnovaPosthocData(anova, factorcomparisons)
+    return AnovaPosthocData(anova, factorcomparisons, type)
 end
-
-import Rmath: libRmath
-srdistccdf(ν, k, x) = ccall((:ptukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
-srdistinvccdf(ν, k, x) = ccall((:qtukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
 
 """
     snk(anova::AnovaData)
@@ -90,21 +105,7 @@ Tends to be more powerful than Tukey, but some suggest it is more likely to lead
 snk(args...) = newmankeulsmultiplerange(args...)
 studentnewmankeuls(args...) = newmankeulsmultiplerange(args...)
 newmankeuls(args...) = newmankeulsmultiplerange(args...)
-function newmankeulsmultiplerange(anova::AnovaData)
-    # same as tukey but uses k = number of means across which it's being tested, e.g. if means are ranked 1,2,3,4,5 and means 5 and 2 are compared, there are 4 means
-    nfactors = length(anova.crossedfactors)
-    i = 1
-    #for i = 1:nfactors
-        factoreffect = anova.crossedfactors[i]
-        nfactorlevels = size(anova.cellmeans, i)
-        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
-        df = anova.crossedfactorsdenominators[i].df
-        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
-        diff = abs.(factormeans .- factormeans')
-        q = diff ./ se
-        p = srdistccdf.(df, abs.((1:nfactorlevels) .- (1:nfactorlevels)') .+ 1, q)
-    #end
-end
+newmankeulsmultiplerange(anova::AnovaData) = multiplecomparisonkernel(anova, snkgroups, "Newman-Keuls")
 
 """
     dmr(anova::AnovaData)
@@ -116,6 +117,7 @@ end
 dmr(args...) = duncanmultiplerange(args...)
 duncan(args...) = duncanmultiplerange(args...)
 function duncanmultiplerange(anova::AnovaData)
+    error("Not implemented")
 end
 
 """
@@ -131,21 +133,7 @@ Note: Tukey's test has sometimes been referred to as "wholly significant differe
 """
 wsd(args...) = multiplecomparisonandrange(args...)
 whollysignificantdifference(args...) = multiplecomparisonandrange(args...)
-function multiplecomparisonandrange(anova::AnovaData)
-    # average of tukey and snk critical values
-    nfactors = length(anova.crossedfactors)
-    i = 1
-    #for i = 1:nfactors
-        factoreffect = anova.crossedfactors[i]
-        nfactorlevels = size(anova.cellmeans, i)
-        factormeans = mean(anova.cellmeans, dims = (1:nfactors)[Not(i)])
-        df = anova.crossedfactorsdenominators[i].df
-        se = sqrt(anova.crossedfactorsdenominators[i].ms / anova.npercell)
-        diff = abs.(factormeans .- factormeans')
-        q = diff ./ se
-        p = srdistccdf.(df, (nfactorlevels .+ abs.((1:nfactorlevels) .- (1:nfactorlevels)') .+ 1) ./ 2, q)
-    #end
-end
+multiplecomparisonandrange(anova::AnovaData) = multiplecomparisonkernel(anova, wsdgroups, "WSD")
 
 """
     dunnett(anova::AnovaData)
@@ -156,6 +144,7 @@ Performs the Dunnett method for comparing each factor level to a control group, 
 dunnett(args...) = controltoall(args...)
 function controlcomparison(anova::AnovaData)
     # distribution is complicated and not standard
+    error("Not implemented")
 end
 
 """
@@ -235,7 +224,7 @@ end
 
 export pooled
 export tukey, hsd, honestlysignificantdifference, multiplecomparison
-export snk, studentnewmankeuls, newmankeuls, multiplerange
+export snk, studentnewmankeuls, newmankeuls, newmankeulsmultiplerange
 export dmr, duncan, duncanmultiplerange
 export wsd, whollysignificantdifference, multiplecomparisonandrange
 export dunnett, controltoall
