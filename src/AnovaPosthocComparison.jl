@@ -25,9 +25,10 @@ end
 import Base.isapprox
 isapprox(x::AnovaPosthocComparison, y::AnovaPosthocComparison) =
     x.levels == y.levels &&
+    x.difference ≈ y.difference
     x.df == y.df &&
     x.se ≈ y.se &&
-    (isnan(x.q) && isnan(y.q) || x.q ≈ y.q) &&
-    (isnan(x.p) && isnan(y.p) || x.p ≈ y.p)
+    x.q ≈ y.q &&
+    x.p ≈ y.p
 
 export AnovaPosthocComparison
