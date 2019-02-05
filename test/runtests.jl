@@ -5,4 +5,5 @@ using DataFrames
 @testset "SimpleANOVA Tests" begin
 include("test_anova.jl")
 include("test_show.jl")
+include("test_posthoc.jl")
 end

@@ -3,7 +3,7 @@
 
 Container for the complete results of a posthoc analysis following ANOVA.
 """
-mutable struct AnovaPosthocData
+struct AnovaPosthocData
     anova::AnovaData
     factorcomparisons::Vector{AnovaPosthocFactor}
     type::String
