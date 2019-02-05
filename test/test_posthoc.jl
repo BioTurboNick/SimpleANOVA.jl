@@ -49,7 +49,7 @@
                     AnovaPosthocComparison("2×5", 18.0666667,  25, 1.27574815, 14.161625,   1.8229017e-9),
                     AnovaPosthocComparison("3×4",  2.9833333,  25, 1.27574815,  2.3384971,  0.11071968),
                     AnovaPosthocComparison("3×5", 14.2166667,  25, 1.27574815, 11.1437878,  9.1097817e-8),
-                    AnovaPosthocComparison("4×5", 17.2,        25, 1.27574815, 13.482285,   8.3353957e-10)]
+                    AnovaPosthocComparison("4×5", 17.2,        25, 1.27574815, 13.482285,   8.33539571e-10)]
 
         posthocresults = snk(results)
         newmankeuls(results)
