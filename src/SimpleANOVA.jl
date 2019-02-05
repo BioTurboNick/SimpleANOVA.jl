@@ -1,7 +1,6 @@
 module SimpleANOVA
 
-using Distributions, Requires
-include("InvertedIndices.jl")
+using Distributions, Requires, InvertedIndices
 include("AnovaEffect.jl")
 include("AnovaValue.jl")
 include("AnovaFactor.jl")
