@@ -1,15 +1,7 @@
 """
     AnovaPosthocFactor
 
-A set of values for an Anova effect which has a mean square.
-
-`name` - the name of this factor
-
-`ss` - sum of squares
-
-`df` - degrees of freedom
-
-`ms` - mean square
+Contains all comparisons between levels of one factor.
 """
 struct AnovaPosthocFactor
     name::String
@@ -17,5 +9,10 @@ struct AnovaPosthocFactor
 end
 
 Broadcast.broadcastable(a::T) where {T <: AnovaPosthocFactor} = (a,) # workaround for current behavior
+
+import Base.isapprox
+isapprox(x::AnovaPosthocFactor, y::AnovaPosthocFactor) =
+    x.name == y.name &&
+    all(x.comparisons .≈ y.comparisons)
 
 export AnovaPosthocFactor

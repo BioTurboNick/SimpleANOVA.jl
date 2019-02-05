@@ -3,21 +3,6 @@ include("AnovaPosthocFactor.jl")
 include("AnovaPosthocData.jl")
 
 """
-    pooled(anova::AnovaData)
-
-Pools the mean squares for the interaction term(s) and error term and recalculates the test.
-
-This should only be used if no interaction is detected. Increases the power of the test, but the chance of committing a Type  I error is less certain.
-
-Generally, the conservative unpooled approach has been shown to be superior.
-"""
-function pooled(anova::AnovaData)
-
-end
-
-
-
-"""
     tukey(anova::AnovaData, α)
     hsd(anova::AnovaData, α)
     honestlysignificantdifference(anova::AnovaData, α)
@@ -82,7 +67,7 @@ function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, type::String)
 
     p = [srdistccdf.(df[i], ngroups[i], q[i]) for i ∈ 1:nfactors]
 
-    comparisons = [[AnovaPosthocComparison((i,j), diffs[k][i,j], df[k], se[k], q[k][i,j], p[k][i,j]) for j ∈ 1:nfactorlevels[k]
+    comparisons = [[AnovaPosthocComparison((j,i), diffs[k][i,j], df[k], se[k], q[k][i,j], p[k][i,j]) for j ∈ 1:nfactorlevels[k]
                                                                                                      for i ∈ (j + 1):nfactorlevels[k]]
                                                                                                      for k ∈ 1:nfactors]
     factorcomparisons = [AnovaPosthocFactor(anova.crossedfactors[i].name, comparisons[i]) for i ∈ 1:nfactors]
@@ -111,6 +96,18 @@ srdistinvccdf(ν, k, x) = ccall((:qtukey, libRmath), Float64, (Float64, Float64,
 
 
 
+"""
+    pooled(anova::AnovaData)
+
+Pools the mean squares for the interaction term(s) and error term and recalculates the test.
+
+This should only be used if no interaction is detected. Increases the power of the test, but the chance of committing a Type  I error is less certain.
+
+Generally, the conservative unpooled approach has been shown to be superior.
+"""
+function pooled(anova::AnovaData)
+
+end
 
 """
     dmr(anova::AnovaData)

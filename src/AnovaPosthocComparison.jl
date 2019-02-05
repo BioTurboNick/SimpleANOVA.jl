@@ -1,7 +1,7 @@
 """
     AnovaPosthocComparison
 
-A set of values for an Anova effect which has a mean square.
+A set of values for a pairwise comparison.
 
 `levels` - the levels being compared
 
@@ -25,7 +25,7 @@ end
 import Base.isapprox
 isapprox(x::AnovaPosthocComparison, y::AnovaPosthocComparison) =
     x.levels == y.levels &&
-    x.difference ≈ y.difference
+    x.difference ≈ y.difference &&
     x.df == y.df &&
     x.se ≈ y.se &&
     x.q ≈ y.q &&
