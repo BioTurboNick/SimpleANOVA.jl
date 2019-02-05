@@ -53,7 +53,7 @@ wsd(args...) = multiplecomparisonandrange(args...)
 whollysignificantdifference(args...) = multiplecomparisonandrange(args...)
 multiplecomparisonandrange(anova::AnovaData) = multiplecomparisonkernel(anova, wsdgroups, "WSD")
 
-function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, type::String)
+function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, testtype::String)
     nfactors = anova.ncrossedfactors
     nfactorlevels = anova.ncrossedfactorlevels |> reverse
     ngroups = ngroupsfunc(nfactorlevels)
@@ -72,7 +72,7 @@ function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, type::String)
                                                                                                      for k ∈ 1:nfactors]
     factorcomparisons = [AnovaPosthocFactor(anova.crossedfactors[i].name, comparisons[i]) for i ∈ 1:nfactors]
 
-    return AnovaPosthocData(anova, factorcomparisons, type)
+    return AnovaPosthocData(anova, factorcomparisons, testtype)
 end
 
 tukeygroups(nfactorlevels::Vector{Int}) = nfactorlevels
