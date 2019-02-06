@@ -1,0 +1,1 @@
+Not(args...) = Not(args)
