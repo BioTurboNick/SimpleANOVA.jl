@@ -25,13 +25,6 @@ hsd(args...) = multiplecomparison(args...)
 honestlysignificantdifference(args...) = multiplecomparison(args...)
 multiplecomparison(anova::AnovaData) = multiplecomparisonkernel(anova, tukeygroups, "Tukey HSD")
 
-function tukeycells(anova::AnovaData, )
-    # temporary, to investigate how to do multiple comparisons when interactions are present
-
-
-end
-
-
 """
     snk(anova::AnovaData)
     studentnewmankeuls(anova::AnovaData)
@@ -99,6 +92,33 @@ end
 
 
 
+#=
+function tukeycells(anova::AnovaData, interactingfactors::Vector{Vector{Int}})
+    # temporary, to investigate how to do multiple comparisons when interactions are present
+    # hmm, could work for all-fixed designs, but if a 3-way had a random factor, denominators could be different?
+    # to investigate: http://www.real-statistics.com/two-way-anova/follow-up-analyses-for-two-factor-anova/tukey-hsd-after-two-factor-anova/
+    nfactors = anova.ncrossedfactors
+    nfactorlevels = anova.ncrossedfactorlevels |> reverse
+    ngroups = ngroupsfunc(nfactorlevels)
+
+    interactingfactors = sort(interactingfactors)
+
+    factormeans = mean.(anova, interactingfactors)
+    df = [f.df for f ∈ anova.crossedfactorsdenominators[interactingfactors] |> reverse]
+    ms = [f.ms for f ∈ anova.crossedfactorsdenominators[interactingfactors] |> reverse]
+    se = sqrt.(ms ./ anova.npercrossedcell)
+    diffs = [abs.(f .- f') for f ∈ factormeans]
+    q = diffs ./ se
+
+    p = [srdistccdf.(df[i], ngroups[i], q[i]) for i ∈ 1:nfactors]
+
+    comparisons = [[AnovaPosthocComparison((j,i), diffs[k][i,j], df[k], se[k], q[k][i,j], p[k][i,j]) for j ∈ 1:nfactorlevels[k]
+                                                                                                     for i ∈ (j + 1):nfactorlevels[k]]
+                                                                                                     for k ∈ 1:nfactors]
+    factorcomparisons = [AnovaPosthocFactor(anova.crossedfactors[i].name, comparisons[i]) for i ∈ 1:nfactors]
+
+    return AnovaPosthocData(anova, factorcomparisons, testtype)
+end=#
 
 """
     pooled(anova::AnovaData)
@@ -150,6 +170,7 @@ dunn(args...) = bonferronicorrection(args...)
 function bonferronicorrection(anova::AnovaData)
     # use t distribution but alpha / m where m = number of comparisons as the critical factor, I think.
     error("Not implemented")
+    # do one-way anova within each level, with p value adjusted
 end
 
 """
