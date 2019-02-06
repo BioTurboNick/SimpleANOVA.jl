@@ -18,6 +18,10 @@ Broadcast.broadcastable(a::T) where {T <: AnovaData} = (a,) # workaround for cur
 
 import Statistics.mean
 mean(anova::AnovaData, factor) = mean(anova.crossedcellmeans, dims = (1:anova.ncrossedfactors)[Not(factor)]) |> vec
+function mean(anova::AnovaData, factors::Vector)
+    otherdims = (1:anova.ncrossedfactors)[Not(factors)]
+    dropdims(mean(anova.crossedcellmeans, dims = otherdims), dims = otherdims)
+end
 
 import Base.show
 function show(io::IO, ad::AnovaData)
