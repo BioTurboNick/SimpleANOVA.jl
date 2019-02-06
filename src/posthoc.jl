@@ -2,6 +2,8 @@ include("AnovaPosthocComparison.jl")
 include("AnovaPosthocFactor.jl")
 include("AnovaPosthocData.jl")
 
+using StatsFuns
+
 """
     tukey(anova::AnovaData, α)
     hsd(anova::AnovaData, α)
@@ -22,6 +24,13 @@ tukey(args...) = multiplecomparison(args...)
 hsd(args...) = multiplecomparison(args...)
 honestlysignificantdifference(args...) = multiplecomparison(args...)
 multiplecomparison(anova::AnovaData) = multiplecomparisonkernel(anova, tukeygroups, "Tukey HSD")
+
+function tukeycells(anova::AnovaData, )
+    # temporary, to investigate how to do multiple comparisons when interactions are present
+
+
+end
+
 
 """
     snk(anova::AnovaData)
@@ -85,11 +94,6 @@ function wsdgroups(nfactorlevels::Vector{Int})
     ngroups2 = tukeygroups(nfactorlevels)
     return [(ngroups1[i] .+ ngroups2[i]) ./ 2 for i ∈ 1:length(nfactorlevels)]
 end
-
-import Rmath: libRmath
-srdistccdf(ν, k, x) = ccall((:ptukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
-srdistinvccdf(ν, k, x) = ccall((:qtukey, libRmath), Float64, (Float64, Float64, Float64, Float64, Int, Int), x, 1, k, ν, 0, 0)
-
 
 
 
@@ -210,3 +214,5 @@ export holmbonferroni, holm, holmbonferronicorrection
 export lsd, leastsignificantdifference
 export s, scheffé, scheffe, multiplecontrasts
 export benjaminihochberg, fdr, falsediscoveryratecorrection
+
+export tukeycell
