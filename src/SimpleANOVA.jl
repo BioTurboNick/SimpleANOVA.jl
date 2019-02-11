@@ -301,7 +301,7 @@ function pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfacto
     factorindexes = 1:ncrossedfactors
     for i ∈ factorindexes
         for j ∈ (i+1):ncrossedfactors
-            otherfactorindexes = factorindexes[Not(i, j)]
+            otherfactorindexes = factorindexes[Not([i, j])]
             ss = sum(sum(nestedsums, dims = otherfactorindexes) .^ 2 ./ (prod(ncrossedfactorlevels[otherfactorindexes]) * prod(nnestedfactorlevels) * nreplicates)) - C - crossedfactors[i].ss - crossedfactors[j].ss
             df = crossedfactors[i].df * crossedfactors[j].df
             pairwise[i,j] = pairwise[j,i] = AnovaFactor("$(crossedfactorlabels[j]) × $(crossedfactorlabels[i])", ss, df)
