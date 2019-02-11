@@ -100,11 +100,11 @@ function tukeyallpairs(anova::AnovaData)
     # conducts a Tukey test between all pairs of factor levels, assumes all fixed
 
     nfactors = anova.ncrossedfactors
-    nfactorlevels = anova.ncrossedfactorlevels
+    nfactorlevels = anova.ncrossedfactorlevels |> reverse
     ngroups = prod(tukeygroups(nfactorlevels))
     means = anova.crossedcellmeans |> vec
 
-    cell_levels = Ref([])
+    cell_levels = Ref(Int[])
     for i = 1:nfactors
         factorlevels = 1:nfactorlevels[i]
         cell_levels = vcat.(cell_levels, factorlevels') |> vec
