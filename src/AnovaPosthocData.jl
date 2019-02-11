@@ -21,7 +21,7 @@ function show(io::IO, apd::AnovaPosthocData)
 
     for factorcomparisons ∈ apd.factorcomparisons
         println(factorcomparisons.name)
-        rownames = [join(c.levels, "×") for c ∈ factorcomparisons.comparisons]
+        rownames = [join([join(cl, ",") for cl ∈ c.levels], "×") for c ∈ factorcomparisons.comparisons]
         nrows = length(factorcomparisons.comparisons)
 
         compactshow(x) = sprint(show, x, context=:compact=>true)

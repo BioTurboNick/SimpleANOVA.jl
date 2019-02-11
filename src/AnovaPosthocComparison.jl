@@ -14,7 +14,7 @@ A set of values for a pairwise comparison.
 `q` - Studentized Range test statistic
 """
 struct AnovaPosthocComparison
-    levels::Tuple{Int, Int}
+    levels::Union{Tuple{Vector{Int}, Vector{Int}},  Tuple{Int, Int}}
     difference::Float64
     df::Float64
     se::Float64

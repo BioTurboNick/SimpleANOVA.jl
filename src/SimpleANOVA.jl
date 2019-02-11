@@ -1,5 +1,22 @@
 module SimpleANOVA
 
+#=
+
+Workflow:
+results = anova() # get table for all effects and detect interactions
+plot(results)     # assess whether interactions are trivial or large
+
+# if interactions are trivial, can immediately do posthoc test of choice on the independent main effects
+tukey(results)
+
+# if interactions are nontrivial, do subanovas with one less factor, at each level of the removed factor, with α/k for k levels
+subanova(results)
+
+# finally, do pairwise (e.g. tukey) tests among levels of one factor
+tukey(results, [1,2])
+=#
+
+
 using Distributions, Requires, InvertedIndices
 include("AnovaEffect.jl")
 include("AnovaValue.jl")
@@ -100,6 +117,14 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     #10kb allocated before this point
     anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
+
+#=
+function anova(data::AnovaData, crossedfactors::Vector{Int}, )
+    # performs a subtest of the specified crossed factors within level of the remaing crossed factors, using the original denominators
+end
+
+# possible bug: function anova(data::AnovaData, crossedfactors::Vector{Int}, ) with normal functions ==> hang when called?
+=#
 
 function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
     length(observations) > 0 || return

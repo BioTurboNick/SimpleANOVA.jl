@@ -78,7 +78,7 @@ function multiplecomparisonkernel(anova::AnovaData, ngroupsfunc, testtype::Strin
 end
 
 tukeygroups(nfactorlevels::Vector{Int}) = nfactorlevels
-function snkgroups(nfactorlevels::Vector{Int})
+function snkgroups(nfactorlevels::Vector{Int})  # oops, this requires means to be ordered
     factorlevels = range.(1, nfactorlevels)
     return [abs.(l .- l') .+ 1 for l ∈ factorlevels]
 end
@@ -89,7 +89,41 @@ function wsdgroups(nfactorlevels::Vector{Int})
 end
 
 
+function allpairwisemap(op, x)
+    xvec = x |> vec
+    xsize = x |> size |> collect
+    y = op.(xvec, xvec')
+    return reshape(y, repeat(xsize, 2)...)
+end
 
+function tukeyallpairs(anova::AnovaData)
+    # conducts a Tukey test between all pairs of factor levels, assumes all fixed
+
+    nfactors = anova.ncrossedfactors
+    nfactorlevels = anova.ncrossedfactorlevels
+    ngroups = prod(tukeygroups(nfactorlevels))
+    means = anova.crossedcellmeans |> vec
+
+    cell_levels = Ref([])
+    for i = 1:nfactors
+        factorlevels = 1:nfactorlevels[i]
+        cell_levels = vcat.(cell_levels, factorlevels') |> vec
+    end
+
+    df = anova.crossedfactorsdenominators[1].df
+    ms = anova.crossedfactorsdenominators[1].ms
+    se = sqrt.(ms ./ anova.npercrossedcell)
+    diffs = allpairwisemap(-, means)
+    q = diffs ./ se
+
+    p = srdistccdf.(df, ngroups, q)
+
+    comparisons = [AnovaPosthocComparison((cell_levels[j],cell_levels[i]), diffs[i,j], df, se, q[i,j], p[i,j]) for j ∈ 1:ngroups
+                                                                                                               for i ∈ (j + 1):ngroups]
+    factorcomparisons = [AnovaPosthocFactor(join([f.name for f ∈ anova.crossedfactors], "×"), comparisons)]
+
+    return AnovaPosthocData(anova, factorcomparisons, "Tukey HSD")
+end
 
 
 #=
