@@ -24,7 +24,6 @@ include("AnovaFactor.jl")
 include("AnovaResult.jl")
 include("AnovaData.jl")
 include("FactorType.jl")
-include("not.jl")
 include("posthoc.jl")
 
 const totalname = "Total"
