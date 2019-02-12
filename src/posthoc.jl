@@ -113,7 +113,7 @@ function tukeyallpairs(anova::AnovaData)
     df = anova.crossedfactorsdenominators[1].df
     ms = anova.crossedfactorsdenominators[1].ms
     se = sqrt.(ms ./ anova.npercrossedcell)
-    diffs = allpairwisemap(-, means)
+    diffs = abs.(allpairwisemap(-, means))
     q = diffs ./ se
 
     p = srdistccdf.(df, ngroups, q)
