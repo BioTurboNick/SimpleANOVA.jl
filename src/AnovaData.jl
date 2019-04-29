@@ -3,7 +3,7 @@
 
 Container for the complete results of an ANOVA test.
 """
-mutable struct AnovaData
+mutable struct AnovaData{T<:Number}
     effects::Vector{AnovaEffect}
     total::AnovaValue
     ncrossedfactors::Int

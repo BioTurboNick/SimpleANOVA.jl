@@ -33,6 +33,7 @@ const remaindername = "Remainder"
 
 function __init__()
     @require DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0" include("anova_dataframes.jl")
+    @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" include("anova_plots.jl")
 end
 
 """
@@ -435,6 +436,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-export anova, ftest
+export anova, ftest, plot
 
 end

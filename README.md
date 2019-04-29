@@ -16,6 +16,13 @@ It uses multidimensional arrays to interpret the structure of the data. Replicat
 
 See docstring for usage.
 
+Example:
+```
+data # N-dimensional matrix of observations
+result = anova(data)
+plot(result) # create pairwise factor plots
+```
+
 Note: Uses parts from [InvertedIndices.jl](https://github.com/mbauman/InvertedIndices.jl)
 
 
