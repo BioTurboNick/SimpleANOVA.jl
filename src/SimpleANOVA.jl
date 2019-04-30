@@ -187,7 +187,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     reverse!(crossedfactors)
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
-    crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[end] : error;
+    crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[1] : error;
     denominators = getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbasedenominator, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)# 2-3kb allocated, 50 allocations
 
     # drop least significant test if nreplicates == 1; either the lowest interaction level, or lowest nesting level if present
