@@ -3,7 +3,7 @@
 
 Container for the complete results of an ANOVA test.
 """
-mutable struct AnovaData{T<:Number}
+mutable struct AnovaData{N}
     effects::Vector{AnovaEffect}
     total::AnovaValue
     ncrossedfactors::Int
@@ -11,7 +11,7 @@ mutable struct AnovaData{T<:Number}
     npercrossedcell::Int
     crossedfactors::Vector{AnovaFactor}
     crossedfactorsdenominators::Vector{AnovaFactor}
-    crossedcellmeans::Array{Float64}
+    crossedcellmeans::Array{Float64, N}
 end
 
 Broadcast.broadcastable(a::T) where {T <: AnovaData} = (a,) # workaround for current behavior
