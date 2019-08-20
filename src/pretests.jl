@@ -34,6 +34,8 @@ function levene(observations::AbstractArray{T}, factortypes::Vector{FactorType} 
     levenekernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
 end
 
+# need median version
+
 function levenekernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
     cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
     cellmeans = cellsums ./ nreplicates
