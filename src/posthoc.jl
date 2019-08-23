@@ -240,6 +240,7 @@ end
 Performs Scheffé multiple contrasts.
 
 Less powerful than Tukey in the typical case, but allows factor levels to be grouped prior to comparison.
+Use this instead of planned contrasts if you don't have a single specific hypothesis.
 """
 s(args...) = s(args...)
 scheffé(args...) = multiplecontrasts(args...)
