@@ -26,7 +26,7 @@ include("data/AnovaResult.jl")
 include("data/AnovaData.jl")
 include("data/FactorType.jl")
 include("anova.jl")
-include("posthoc.jl")
+include("pretests.jl")
 
 function __init__()
     @require DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0" include("anova_dataframes.jl")
