@@ -19,14 +19,14 @@ tukey(results, [1,2])
 
 using Distributions, Requires, InvertedIndices
 
-include(raw"data\AnovaEffect.jl")
-include(raw"data\AnovaValue.jl")
-include(raw"data\AnovaFactor.jl")
-include(raw"data\AnovaResult.jl")
-include(raw"data\AnovaData.jl")
-include(raw"data\FactorType.jl")
-include(raw"data\anova.jl")
-include(raw"data\posthoc.jl")
+include("data/AnovaEffect.jl")
+include("data/AnovaValue.jl")
+include("data/AnovaFactor.jl")
+include("data/AnovaResult.jl")
+include("data/AnovaData.jl")
+include("data/FactorType.jl")
+include("data/anova.jl")
+include("data/posthoc.jl")
 
 function __init__()
     @require DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0" include("anova_dataframes.jl")
