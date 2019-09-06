@@ -35,6 +35,6 @@ function __init__()
 end
 
 
-export anova, ftest, plot
+export anova, ftest, plot, levene
 
 end
