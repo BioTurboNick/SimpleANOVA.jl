@@ -185,7 +185,7 @@
 
         @testset "1-way ANOVA with 2 nested factors" begin
             expected = [AnovaValue( "Total", 101.58753,   47),
-                        AnovaResult(    "A",   7.5108875,  2, 3.7554438, 2.0223607, 0.21481422),
+                        AnovaResult(    "A",   7.5108875,  2, 3.7554438, 2.0223607, 0.27789847),
                         AnovaResult(    "B",   5.5708812,  3, 1.8569604, 0.99348408, 0.45717102),
                         AnovaResult(    "C",  11.2148375,  6, 1.8691396, 0.87059412, 0.52587983),
                         AnovaFactor("Error",  77.290925,  36, 2.14697014)]
