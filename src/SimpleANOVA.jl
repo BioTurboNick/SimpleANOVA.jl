@@ -26,13 +26,16 @@ include("data/AnovaResult.jl")
 include("data/AnovaData.jl")
 include("data/FactorType.jl")
 include("anova.jl")
+include("pretests.jl")
+
 
 function __init__()
     @require DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0" include("anova_dataframes.jl")
+    @require DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0" include("pretests_dataframes.jl") # can these be combined?
     @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" include("anova_plots.jl")
 end
 
 
-export anova, ftest, plot
+export anova, ftest, plot, levene
 
 end
