@@ -14,16 +14,30 @@ Handles ANOVA with up to 3 crossed factors (fixed or random) and arbitrarily man
 
 It uses multidimensional arrays to interpret the structure of the data. Replicates should either be indexed along the first dimension or contained in a vector, with Factor B and Factor A the next available indices.
 
+Can also work with multiple vectors and DataFrames.
+
 See docstring for usage.
 
-Example:
+Examples:
 ```
-data # N-dimensional matrix of observations
-result = anova(data)
-plot(result) # create pairwise factor plots
+data                 # N-dimensional matrix of observations
+levene(data)         # test data for homogeniety of variance
+result = anova(data) # conduct the test
+plot(result)         # create pairwise factor plots
+```
+```
+data                          # vector of observations
+factors                       # vector of factor level assignment vectors
+levene(data)                  # test data for homogeniety of variance
+result = anova(data, factors) # conduct the test
+plot(result)                  # create pairwise factor plots
+```
+```
+df                                         # DataFrame
+factors                                    # vector of symbols for factor assignment columns
+levene(df, :observations, factors)         # test data for homogeniety of variance
+result = anova(df, :observations, factors) # conduct the test
+plot(result)                               # create pairwise factor plots
 ```
 
-Note: Uses parts from [InvertedIndices.jl](https://github.com/mbauman/InvertedIndices.jl)
-
-
-VERY EXPERIMENTAL - NOT READY FOR REAL USE
+Experimental, use at own risk!
