@@ -45,6 +45,9 @@ function levene(observations::AbstractVector{T}, factorassignments::AbstractVect
     sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
                          sum([factorassignments[i] .* prod(nlevels[1:i]) for i ∈ 1:nfactors]))
     observationsmatrix = reshape(observations[sortorder], nlevels...)
+
+
+
     levenekernel(observationsmatrix, nreplicates, ncells)
 end
 
@@ -53,8 +56,12 @@ end
 function levenekernel(observations, nreplicates, ncells)
     cellsums = sumfirstdim(observations)
     cellmeans = cellsums ./ nreplicates
-    absdevs = abs.(observations .- cellmeans')
-    anovakernel(absdevs, nreplicates, ncells, 0, 1, ncells, [fixed], ["Groups"], String[])
+    if eltype(observations) <: Number
+        absdevs = abs.(observations .- cellmeans')
+    else
+        absdevs = [abs.(observations[i] .- cellmeans[i]) for i ∈ eachindex(observations)]
+    end
+    anovakernel(absdevs, nreplicates, ncells, 0, 1, [ncells], [fixed], ["Groups"], String[])
 end
 
 export levene
