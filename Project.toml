@@ -1,7 +1,7 @@
 name = "SimpleANOVA"
 uuid = "fff527a3-8410-504e-9ca3-60d5e79bb1e4"
 authors = ["Nicholas Bauer <nicholasbauer@outlook.com>"]
-version = "0.3.0"
+version = "0.4.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -15,3 +15,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "DataFrames"]
+
+[compat]
+julia = "1"
