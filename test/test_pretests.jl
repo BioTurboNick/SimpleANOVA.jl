@@ -77,12 +77,6 @@
 
                         @test_throws ErrorException levene(observations)
                     end
-
-                    @testset "Replicate First Dimension" begin
-                        observations = [123 138 110 151; 145 165 140 167; 156 176 185 175]
-
-                        @test_throws ErrorException levene(observations, hasreplicates = false)
-                    end
                 end
             end
 
