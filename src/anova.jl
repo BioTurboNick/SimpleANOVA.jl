@@ -172,7 +172,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
     crossedcellmeans = crossedcellsums ./ npercrossedcell
 
-    effectsizes = effectsizescalc(results, denominators, total, ncrossedfactors, ncrossedfactorlevels, crossedfactortypes) # note: effect size doesn't account for nesting
+    effectsizes = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes) # note: effect size doesn't account for nesting
 
     data = AnovaData([total; results], effectsizes, total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
@@ -409,7 +409,7 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-function effectsizescalc(results, denominators, total, ncrossedfactors, ncrossedfactorlevels, crossedfactortypes)
+function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes)
     differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)]
     crossedfactordfs = [1; [r.df for r ∈ results[1:ncrossedfactors]]]
 
