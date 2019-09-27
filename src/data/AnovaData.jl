@@ -57,7 +57,7 @@ function show(io::IO, ad::AnovaData)
             lpad(ms[i], colwidths[4]) *
             lpad(f[i], colwidths[5]) *
             lpad(p[i], colwidths[6]) *
-            lpad(ω²[i], colwidths[7] for i ∈ 1:nrows]
+            lpad(ω²[i], colwidths[7]) for i ∈ 1:nrows]
 
     println(io)
     println(io, "Analysis of Variance Results")

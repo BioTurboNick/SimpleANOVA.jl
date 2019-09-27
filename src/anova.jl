@@ -431,7 +431,7 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, ncrossed
         israndom = crossedfactortypes .== :random
         isfixed = crossedfactortypes .== :fixed
         effectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
-        effectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)] for i ∈ (1:ncrossedfactors)[israndom]]
+        effectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ (1:ncrossedfactors)[israndom]]
 
         σ² = factors .* differences ./ effectsdenominators
         σ²total = sum(σ²)
