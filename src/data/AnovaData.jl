@@ -5,7 +5,6 @@ Container for the complete results of an ANOVA test.
 """
 mutable struct AnovaData{N}
     effects::Vector{AnovaEffect}
-    effectsizes::Vector{Float64}
     total::AnovaValue
     ncrossedfactors::Int
     ncrossedfactorlevels::Vector{Int}
@@ -32,13 +31,13 @@ function show(io::IO, ad::AnovaData)
 
     ndec = [length.(last.(split.(values, "."))) for values ∈ [ss, ms, f, p, ω²]]
     maxndec = maximum.(ndec)
-    rpadding = [maxndec[i] .- ndec[i] for i ∈ 1:4]
+    rpadding = [maxndec[i] .- ndec[i] for i ∈ 1:5]
 
     ss = [rpad(ss[i], rpadding[1][i] + length(ss[i])) for i ∈ 1:nrows]
     ms = [rpad(ms[i], rpadding[2][i] + length(ms[i])) for i ∈ 1:nrows]
     f = [rpad(f[i], rpadding[3][i] + length(f[i])) for i ∈ 1:nrows]
     p = [rpad(p[i], rpadding[4][i] + length(p[i])) for i ∈ 1:nrows]
-    ω² = [rpad(ω²[i], rpadding[5][i] + length(p[i])) for i ∈ 1:nrows]
+    ω² = [rpad(ω²[i], rpadding[5][i] + length(ω²[i])) for i ∈ 1:nrows]
 
     colwidths = [length.(values) |> maximum for values ∈ [[colnames[1]; rownames],
                                                           [colnames[2]; ss],

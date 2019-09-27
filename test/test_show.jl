@@ -1,9 +1,9 @@
 @testset "Display Tests" begin
     @testset "AnovaData" begin
         data = [AnovaValue( "Total", 1827.6975, 19),
-                AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175),
-                AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7),
-                AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001),
+                AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175, 0),
+                AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7, 0),
+                AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001, 0),
                 AnovaFactor(    "C",  366.372,  16,   22.89825)]
         result = AnovaData(data, data[1], 2, [2,2], 5, [AnovaFactor(r.name, r.ss, r.df, r.ms) for r ∈ data[2:3]], [data[5], data[5]], Float64[])
 

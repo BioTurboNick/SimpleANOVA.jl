@@ -3,7 +3,7 @@
         @testset "Multidimensional Array" begin
             @testset "1-way ANOVA" begin
                 expected = [AnovaValue(  "Total", 48.24912, 19),
-                            AnovaResult("Groups",  1.69792,  3, 0.56597333, 0.19452932, 0.89858),
+                            AnovaResult("Groups",  1.69792,  3, 0.56597333, 0.19452932, 0.89858, 0),
                             AnovaFactor( "Error", 46.5512,  16, 2.90945)]
 
                 @testset "Replicate Vectors" begin
@@ -33,7 +33,7 @@
 
             @testset "2-way ANOVA" begin
                 expected = [AnovaValue(  "Total", 135.172,   19),
-                            AnovaResult("Groups",  89.24992,  3,  29.749973, 10.365375, 0.00049480716),
+                            AnovaResult("Groups",  89.24992,  3,  29.749973, 10.365375, 0.00049480716, 0),
                             AnovaFactor( "Error",  45.92208, 16,   2.87013)]
 
                 @testset "Replicate Vectors" begin
@@ -82,7 +82,7 @@
 
             @testset "3-way ANOVA" begin
                 expected = [AnovaValue(  "Total", 0.50277778,  71),
-                            AnovaResult("Groups", 0.077777778, 17, 0.0045751634, 0.58131488, 0.8912173),
+                            AnovaResult("Groups", 0.077777778, 17, 0.0045751634, 0.58131488, 0.8912173, 0),
                             AnovaFactor( "Error", 0.425,       54, 0.0078703704)]
 
                 @testset "Replicate Vectors" begin
@@ -142,7 +142,7 @@
                                  repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
 
             expected = [AnovaValue(  "Total", 0.50277778,  71),
-                        AnovaResult("Groups", 0.077777778, 17, 0.0045751634, 0.58131488, 0.8912173),
+                        AnovaResult("Groups", 0.077777778, 17, 0.0045751634, 0.58131488, 0.8912173, 0),
                         AnovaFactor( "Error", 0.425,       54, 0.0078703704)]
 
             @testset "3-way ANOVA ordered" begin
@@ -194,7 +194,7 @@
                                  repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
 
             expected = [AnovaValue(  "Total", 0.50277778,  71),
-                        AnovaResult("Groups", 0.077777778, 17, 0.0045751634, 0.58131488, 0.8912173),
+                        AnovaResult("Groups", 0.077777778, 17, 0.0045751634, 0.58131488, 0.8912173, 0),
                         AnovaFactor( "Error", 0.425,       54, 0.0078703704)]
 
             @testset "3-way ANOVA shuffled" begin

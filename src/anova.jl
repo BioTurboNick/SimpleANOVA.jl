@@ -172,9 +172,9 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
     crossedcellmeans = crossedcellsums ./ npercrossedcell
 
-    effectsizes = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes) # note: effect size doesn't account for nesting
+    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes) # note: effect size doesn't account for nesting
 
-    data = AnovaData([total; results], effectsizes, total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
+    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 
@@ -430,13 +430,15 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
 
         israndom = crossedfactortypes .== :random
         isfixed = crossedfactortypes .== :fixed
-        effectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
-        effectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ (1:ncrossedfactors)[israndom]]
+        crossedeffectsdenominators = effectsdenominators[1:ncrossedfactors]
+        crossedeffectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
+        crossedeffectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ (1:ncrossedfactors)[israndom]]
+        effectsdenominators[1:ncrossedfactors] = crossedeffectsdenominators
 
         σ² = factors .* differences ./ effectsdenominators
         σ²total = sum(σ²)
         ω² = σ² ./ σ²total
     end
 
-    return ω²
+    return AnovaResult.(results, ω²)
 end
