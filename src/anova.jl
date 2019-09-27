@@ -49,6 +49,7 @@ anova(observations, [nested, random])      # N-way fixed-effects ANOVA with 1 ra
 - mean square (MS): SS / DF. Corrects for the larger variance expected if random values can be assigned to more bins. Also called "mean squared error" or "mean squared deviation."
 - F-statistic: The division of MS values produce a result belonging to the "F distribution", the shape of which depends on the DF of the numerator and denominator. The location of this value on the distribution provides the p-value.
 - p-value: The probability that, if all measurements had been drawn from the same population, you would obtain data at least as extreme as contained in your observations.
+- effect size: The standardized difference in the measurement caused by the factor.
 """
 function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
@@ -143,13 +144,13 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     # collapse replicate dimension
     cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
-    C = sum(cellsums) ^ 2 / N
-    total = totalcalc(observations, N, C)
-    amongallnested, crossedcellsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
-    cells = cellscalc(cellsums, nreplicates, ncells, C)
+    constant = sum(cellsums) ^ 2 / N
+    total = totalcalc(observations, N, constant)
+    amongallnested, crossedcellsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, constant)
+    cells = cellscalc(cellsums, nreplicates, ncells, constant)
 
-    crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames) # 3kb allocated here, possibly can't be avoided
-    interactions, interactionsmap = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames) # 9 kb allocated here!
+    crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, constant, crossedfactornames) # 3kb allocated here, possibly can't be avoided
+    interactions, interactionsmap = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, constant, crossedfactornames) # 9 kb allocated here!
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
     error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates)
 
@@ -170,7 +171,10 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
     crossedcellmeans = crossedcellsums ./ npercrossedcell
-    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
+
+    effectsizes = effectsizescalc(results, denominators, total, ncrossedfactors, ncrossedfactorlevels, crossedfactortypes) # note: effect size doesn't account for nesting
+
+    data = AnovaData([total; results], effectsizes, total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 
@@ -403,4 +407,36 @@ function ftest(x, y)
     fdist = FDist(x.df, y.df)
     p = ccdf(fdist, f)
     AnovaResult(x, f, p)
+end
+
+function effectsizescalc(results, denominators, total, ncrossedfactors, ncrossedfactorlevels, crossedfactortypes)
+    differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)]
+    crossedfactordfs = [1; [r.df for r ∈ results[1:ncrossedfactors]]]
+
+    if ncrossedfactors == 1
+        ω² = (results[1].ss - results[1].df * denominators[1].ms) / (total.ss + denominators[1].ms)
+    else
+        if ncrossedfactors == 2
+            factors = zeros(3)
+            factors[1:2] = [crossedfactortypes[i] == :random ? crossedfactordfs[i] : 1 for i ∈ 1:2]
+            factors[3] = prod(factors[1:2])
+            effectsdenominators = repeat([npercrossedcell], 3)
+        else
+            factors = zeros(7)
+            factors[1:3] = [crossedfactortypes[i] == :random ? crossedfactordfs[i] : 1 for i ∈ 1:3]
+            factors[4:7] = [prod(factors[x]) for x ∈ [[1,2], [1,3], [2,3], [3,4]]] # make sure 4 is calculated before 3-4 runs
+            effectsdenominators = repeat([npercrossedcell], 7)
+        end
+
+        israndom = crossedfactortypes .== :random
+        isfixed = crossedfactortypes .== :fixed
+        effectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
+        effectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)] for i ∈ (1:ncrossedfactors)[israndom]]
+
+        σ² = factors .* differences ./ effectsdenominators
+        σ²total = sum(σ²)
+        ω² = σ² ./ σ²total
+    end
+
+    return ω²
 end
