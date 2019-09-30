@@ -155,6 +155,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates)
 
     reverse!(crossedfactors)
+    reverse!(ncrossedfactorlevels)
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
     crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[1] : error;
@@ -411,32 +412,41 @@ end
 
 function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes)
     differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)]
-    crossedfactordfs = [1; [r.df for r ∈ results[1:ncrossedfactors]]]
+    crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
 
     if ncrossedfactors == 1
         ω² = (results[1].ss - results[1].df * denominators[1].ms) / (total.ss + denominators[1].ms)
     else
         if ncrossedfactors == 2
-            factors = zeros(3)
-            factors[1:2] = [crossedfactortypes[i] == :random ? crossedfactordfs[i] : 1 for i ∈ 1:2]
-            factors[3] = prod(factors[1:2])
-            effectsdenominators = repeat([npercrossedcell], 3)
+            if npercrossedcell > 1
+                interactions = [[1,2]]
+                imax = 3
+            else
+                interactions = []
+                imax = 2
+            end
         else
-            factors = zeros(7)
-            factors[1:3] = [crossedfactortypes[i] == :random ? crossedfactordfs[i] : 1 for i ∈ 1:3]
-            factors[4:7] = [prod(factors[x]) for x ∈ [[1,2], [1,3], [2,3], [3,4]]] # make sure 4 is calculated before 3-4 runs
-            effectsdenominators = repeat([npercrossedcell], 7)
+            interactions = [[1,2], [1,3], [2,3], [1,2,3]]
+            imax = 7
         end
 
-        israndom = crossedfactortypes .== :random
-        isfixed = crossedfactortypes .== :fixed
-        crossedeffectsdenominators = effectsdenominators[1:ncrossedfactors]
+        icrossed = 1:ncrossedfactors
+        iother = (ncrossedfactors + 1):imax
+        factors = zeros(imax)
+        factors[icrossed] = [crossedfactortypes[i] == fixed ? crossedfactordfs[i] : 1 for i ∈ icrossed]
+        factors[iother] = [prod(factors[x]) for x ∈ interactions]
+        effectsdenominators = repeat([npercrossedcell], imax)
+
+        israndom = crossedfactortypes .== random
+        isfixed = crossedfactortypes .== fixed
+        crossedeffectsdenominators = effectsdenominators[icrossed]
         crossedeffectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
-        crossedeffectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ (1:ncrossedfactors)[israndom]]
-        effectsdenominators[1:ncrossedfactors] = crossedeffectsdenominators
+        crossedeffectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ icrossed[israndom]]
+        effectsdenominators[icrossed] = crossedeffectsdenominators
+        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactions]
 
         σ² = factors .* differences ./ effectsdenominators
-        σ²total = sum(σ²)
+        σ²total = sum(σ²) + denominators[end].ms
         ω² = σ² ./ σ²total
     end
 
