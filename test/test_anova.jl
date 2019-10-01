@@ -163,11 +163,11 @@
                 end
             end
         end
-################################################
+
         @testset "1-way ANOVA with 1 nested factor" begin
             expected = [AnovaValue( "Total", 71.666667, 11),
-                        AnovaResult(    "A", 61.166667,  2, 30.583333, 61.166667,   0.0037032412, 0),
-                        AnovaResult(    "B",  1.5,       3,  0.5,       0.33333333, 0.80220227, 0),
+                        AnovaResult(    "A", 61.166667,  2, 30.583333, 61.166667,   0.0037032412, 0.83371824),
+                        AnovaResult(    "B",  1.5,       3,  0.5,       0.33333333, 0.80220227,  -0.083140878),
                         AnovaFactor("Error",  9.0,       6,  1.5)]
 
             @testset "Replicate Vectors" begin
@@ -195,9 +195,9 @@
 
         @testset "1-way ANOVA with 2 nested factors" begin
             expected = [AnovaValue( "Total", 101.58753,   47),
-                        AnovaResult(    "A",   7.5108875,  2, 3.7554438, 2.0223607, 0.27789847, 0),
-                        AnovaResult(    "B",   5.5708812,  3, 1.8569604, 0.99348408, 0.45717102, 0),
-                        AnovaResult(    "C",  11.2148375,  6, 1.8691396, 0.87059412, 0.52587983, 0),
+                        AnovaResult(    "A",   7.5108875,  2, 3.7554438, 2.0223607, 0.27789847,   0.036705354),
+                        AnovaResult(    "B",   5.5708812,  3, 1.8569604, 0.99348408, 0.45717102, -0.0007064175),
+                        AnovaResult(    "C",  11.2148375,  6, 1.8691396, 0.87059412, 0.52587983, -0.032229523),
                         AnovaFactor("Error",  77.290925,  36, 2.14697014)]
 
             @testset "Replicate Vectors" begin
@@ -261,9 +261,9 @@
 
             @testset "Fixed-effects (Model I)" begin
                expected = [AnovaValue( "Total", 1827.6975, 19),
-                           AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175, 0),
-                           AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7, 0),
-                           AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001, 0),
+                           AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175,  0.025621074),
+                           AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7, 0.73663535),
+                           AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001,  -0.0097253817),
                            AnovaFactor(    "C",  366.372,  16,   22.89825)]
 
                @testset "Replicate Vectors" begin
@@ -279,9 +279,9 @@
 
             @testset "Random-effects (Model II)" begin
                expected = [AnovaValue( "Total", 1827.6975, 19),
-                           AnovaResult(    "A",   70.3125,  1,   70.3125,  14.3480257,  0.16431864, 0),
-                           AnovaResult(    "B", 1386.1125,  1, 1386.1125, 282.85124,    0.037808553, 0),
-                           AnovaResult("A × B",    4.9005,  1,    4.9005,   0.21401199, 0.64987001, 0),
+                           AnovaResult(    "A",   70.3125,  1,   70.3125,  14.3480257,  0.16431864,  0.039894829),
+                           AnovaResult(    "B", 1386.1125,  1, 1386.1125, 282.85124,    0.037808553, 0.84240225),
+                           AnovaResult("A × B",    4.9005,  1,    4.9005,   0.21401199, 0.64987001, -0.021953683),
                            AnovaFactor(    "C",  366.372,  16,   22.89825)]
 
                @testset "Replicate Vectors" begin
@@ -297,9 +297,9 @@
 
             @testset "Mixed-effects (Model III)" begin
                expected = [AnovaValue( "Total", 1827.6975, 19),
-                           AnovaResult(    "A",   70.3125,  1,   70.3125, 14.3480257,  0.16431864, 0),
-                           AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7, 0),
-                           AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001, 0),
+                           AnovaResult(    "A",   70.3125,  1,   70.3125, 14.3480257,  0.16431864,   0.0203534123),
+                           AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7, 0.84834776,
+                           AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001,  -0.0112002576),
                            AnovaFactor(    "C",  366.372,  16,   22.89825)]
 
                @testset "Replicate Vectors" begin
@@ -313,7 +313,7 @@
                end
             end
         end
-
+########################################
         @testset "3-way ANOVA" begin
             observations1 = Array{Vector{Float64}, 3}(undef, 2, 3, 3)
             observations1[1,1,1] = [1.9, 1.8, 1.6, 1.4]

@@ -156,6 +156,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     reverse!(crossedfactors)
     reverse!(ncrossedfactorlevels)
+    reverse!(nnestedfactorlevels)
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
     crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[1] : error;
@@ -173,7 +174,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
     crossedcellmeans = crossedcellsums ./ npercrossedcell
 
-    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes) # note: effect size doesn't account for nesting
+    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # note: effect size doesn't account for nesting
 
     data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
@@ -410,12 +411,31 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes)
+function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
     differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)]
     crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
 
+    if nreplicates == 1 && nnestedfactors > 0
+        nnestedfactors -= 1
+        nnestedfactorlevels = nnestedfactorlevels[1:(end-1)]
+    end
+
     if ncrossedfactors == 1
-        ω² = (results[1].ss - results[1].df * denominators[1].ms) / (total.ss + denominators[1].ms)
+        if nnestedfactors == 0
+            ω² = [(results[1].ss - results[1].df * denominators[1].ms) / (total.ss + denominators[1].ms)]
+        else
+            effectdenominators = repeat([nreplicates], nnestedfactors + 1)
+            nfactorlevels = [ncrossedfactorlevels; nnestedfactorlevels]
+            effectdenominators[1] *= prod(nfactorlevels)
+            factors = ones(nnestedfactors + 1)
+            factors[1] = crossedfactordfs[1]
+            for i ∈ 2:nnestedfactors
+                effectdenominators[2:(end - i + 1)] .*= nfactorlevels[end - i + 2]
+            end
+            σ² = factors .* differences ./ effectdenominators
+            σ²total = sum(σ²) + denominators[end].ms
+            ω² = σ² ./ σ²total
+        end
     else
         if ncrossedfactors == 2
             if npercrossedcell > 1
@@ -426,8 +446,13 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
                 imax = 2
             end
         else
-            interactions = [[1,2], [1,3], [2,3], [1,2,3]]
-            imax = 7
+            if npercrossedcell > 1
+                interactions = [[1,2], [1,3], [2,3], [1,2,3]]
+                imax = 7
+            else
+                interactions = [[1,2], [1,3], [2,3]]
+                imax = 6
+            end
         end
 
         icrossed = 1:ncrossedfactors
@@ -446,9 +471,22 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
         effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactions]
 
         σ² = factors .* differences ./ effectsdenominators
+
+        if nnestedfactors > 0
+            nestedrange = (length(results) .- nnestedfactors .+ 1):length(results)
+            nestedeffectdenominators = repeat([nreplicates], nnestedfactors)
+            for i ∈ 1:(nnestedfactors - 1)
+                nestedeffectdenominators[1:(end - i + 1)] .*= nnestedfactorlevels[end - i + 2]
+            end
+            σ²nested = differences[nestedrange] ./ nestedeffectdenominators
+            σ² = [σ²; σ²nested]
+        end
+
         σ²total = sum(σ²) + denominators[end].ms
         ω² = σ² ./ σ²total
     end
+
+
 
     return AnovaResult.(results, ω²)
 end
