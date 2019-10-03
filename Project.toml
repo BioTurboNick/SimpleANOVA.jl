@@ -1,12 +1,15 @@
 name = "SimpleANOVA"
 uuid = "fff527a3-8410-504e-9ca3-60d5e79bb1e4"
 authors = ["Nicholas Bauer <nicholasbauer@outlook.com>"]
-version = "0.4.0"
+version = "0.5.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+
+[compat]
+julia = "1"
 
 [extras]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -15,6 +18,3 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "DataFrames"]
-
-[compat]
-julia = "1"
