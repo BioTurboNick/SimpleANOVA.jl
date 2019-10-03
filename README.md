@@ -10,11 +10,13 @@ This is a basic attempt to get a simple ANOVA implementation for Julia that work
 
 The goal is to allow one function to do as much for you as possible, automatically choosing the right calculations.
 
-Handles ANOVA with up to 3 crossed factors (fixed or random) and arbitrarily many nested factors. Requires equal replication.
+Handles ANOVA with up to 3 crossed factors (fixed or random) and arbitrarily many nested factors. Requires equal replication. (If you have missing values, there are techniques to fill them in, within limits; e.g. use the average of the cell for one value).
 
 It uses multidimensional arrays to interpret the structure of the data. Replicates should either be indexed along the first dimension or contained in a vector, with Factor B and Factor A the next available indices.
 
 Can also work with multiple vectors and DataFrames.
+
+New in v0.5: ω² effect size (Disclaimer: effect size calculations for nested and 3-way mixed ANOVA is inferred and may not be correct.)
 
 See docstring for usage.
 
