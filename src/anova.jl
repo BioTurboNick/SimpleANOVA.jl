@@ -49,6 +49,7 @@ anova(observations, [nested, random])      # N-way fixed-effects ANOVA with 1 ra
 - mean square (MS): SS / DF. Corrects for the larger variance expected if random values can be assigned to more bins. Also called "mean squared error" or "mean squared deviation."
 - F-statistic: The division of MS values produce a result belonging to the "F distribution", the shape of which depends on the DF of the numerator and denominator. The location of this value on the distribution provides the p-value.
 - p-value: The probability that, if all measurements had been drawn from the same population, you would obtain data at least as extreme as contained in your observations.
+- effect size: The standardized difference in the measurement caused by the factor.
 """
 function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
@@ -143,21 +144,29 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     # collapse replicate dimension
     cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
-    C = sum(cellsums) ^ 2 / N
-    total = totalcalc(observations, N, C)
-    amongallnested, crossedcellsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
-    cells = cellscalc(cellsums, nreplicates, ncells, C)
+    constant = sum(cellsums) ^ 2 / N
+    total = totalcalc(observations, N, constant)
+    amongallnested, crossedcellsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, constant)
+    cells = cellscalc(cellsums, nreplicates, ncells, constant)
 
-    crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, C, crossedfactornames) # 3kb allocated here, possibly can't be avoided
-    interactions, interactionsmap = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactornames) # 9 kb allocated here!
+    crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, constant, crossedfactornames) # 3kb allocated here, possibly can't be avoided
+    interactions, interactionsmap = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, constant, crossedfactornames) # 9 kb allocated here!
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
     error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates)
-
-    reverse!(crossedfactors)
 
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
     crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[1] : error;
     denominators = getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbasedenominator, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)# 2-3kb allocated, 50 allocations
+
+
+    numerators[1:ncrossedfactors] = reverse(numerators[1:ncrossedfactors])
+    if (ncrossedfactors > 2) # some hacky reverse stuff going on  just to make it work. Really needs to be reworked to avoid.
+        denominators[1:ncrossedfactors] = reverse(denominators[1:ncrossedfactors])
+    end
+    reverse!(ncrossedfactorlevels)
+    if nnestedfactors > 1
+        reverse!(nnestedfactorlevels)
+    end
 
     # drop least significant test if nreplicates == 1; either the lowest interaction level, or lowest nesting level if present
     if nreplicates == 1
@@ -170,6 +179,9 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
     crossedcellmeans = crossedcellsums ./ npercrossedcell
+
+    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # note: effect size doesn't account for nesting
+
     data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
@@ -340,13 +352,14 @@ function getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbase
             crosseddenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
             for i ∈ 1:ncrossedfactors
                 otherfactors = (1:ncrossedfactors)[Not(i)]
+
                 j = otherfactors[1]
                 k = otherfactors[2]
                 crosseddenominators[i] = threewayinteraction(interactionsmap[(i,j)], interactionsmap[(i,k)], interactionsmap[(1,2,3)])
             end
             pairwiseinteractiondenominators = repeat([interactionsmap[(1,2,3)]], ncrossedfactors)
         elseif count(f -> f == random, crossedfactortypes) == 1
-            i = findfirst(f -> f == random, crossedfactortypes)
+            i = findfirst(f -> f == random, reverse(crossedfactortypes))
 
             crosseddenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
             crosseddenominators[i] = crossedbasedenominator
@@ -361,7 +374,7 @@ function getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbase
             pairwiseinteractiondenominators[fixedinteractionindex] = interactionsmap[(1,2,3)]
             pairwiseinteractiondenominators[Not(fixedinteractionindex)] .= crossedbasedenominator
         elseif count(f -> f == random, crossedfactortypes) == 2
-            i = findfirst(f -> f == fixed, crossedfactortypes)
+            i = findfirst(f -> f == fixed, reverse(crossedfactortypes))
             otherfactors = (1:ncrossedfactors)[Not(i)]
             j = otherfactors[1]
             k = otherfactors[2]
@@ -376,7 +389,7 @@ function getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbase
             pairwiseinteractiondenominators[Not(randominteractionindex)] .= interactionsmap[(1,2,3)]
         end
 
-        denominators = [crosseddenominators; pairwiseinteractiondenominators; crossedbasedenominator]
+        denominators = [crosseddenominators; reverse(pairwiseinteractiondenominators); crossedbasedenominator]
     end
 
     # determine correct denominators for nested factors
@@ -403,4 +416,84 @@ function ftest(x, y)
     fdist = FDist(x.df, y.df)
     p = ccdf(fdist, f)
     AnovaResult(x, f, p)
+end
+
+function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
+    differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)]
+    crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
+
+    if nreplicates == 1 && nnestedfactors > 0
+        nnestedfactors -= 1
+        nnestedfactorlevels = nnestedfactorlevels[1:(end-1)]
+    end
+
+    if ncrossedfactors == 1
+        if nnestedfactors == 0
+            ω² = [(results[1].ss - results[1].df * denominators[1].ms) / (total.ss + denominators[1].ms)]
+        else
+            effectdenominators = repeat([nreplicates], nnestedfactors + 1)
+            nfactorlevels = [ncrossedfactorlevels; nnestedfactorlevels]
+            effectdenominators[1] *= prod(nfactorlevels)
+            factors = ones(nnestedfactors + 1)
+            factors[1] = crossedfactordfs[1]
+            for i ∈ 2:nnestedfactors
+                effectdenominators[2:(end - i + 1)] .*= nfactorlevels[end - i + 2]
+            end
+            σ² = factors .* differences ./ effectdenominators
+            σ²total = sum(σ²) + denominators[end].ms
+            ω² = σ² ./ σ²total
+        end
+    else
+        if ncrossedfactors == 2
+            if npercrossedcell > 1
+                interactions = [[1,2]]
+                imax = 3
+            else
+                interactions = []
+                imax = 2
+            end
+        else
+            if npercrossedcell > 1
+                interactions = [[1,2], [1,3], [2,3], [1,2,3]]
+                imax = 7
+            else
+                interactions = [[1,2], [1,3], [2,3]]
+                imax = 6
+            end
+        end
+
+        icrossed = 1:ncrossedfactors
+        iother = (ncrossedfactors + 1):imax
+        factors = zeros(imax)
+        factors[icrossed] = [crossedfactortypes[i] == fixed ? crossedfactordfs[i] : 1 for i ∈ icrossed]
+        factors[iother] = [prod(factors[x]) for x ∈ interactions]
+        effectsdenominators = repeat([npercrossedcell], imax)
+
+        israndom = crossedfactortypes .== random
+        isfixed = crossedfactortypes .== fixed
+        crossedeffectsdenominators = effectsdenominators[icrossed]
+        crossedeffectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
+        crossedeffectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ icrossed[israndom]]
+        effectsdenominators[icrossed] = crossedeffectsdenominators
+        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactions]
+
+        σ² = factors .* differences[1:imax] ./ effectsdenominators
+
+        if nnestedfactors > 0
+            nestedrange = (length(results) .- nnestedfactors .+ 1):length(results)
+            nestedeffectdenominators = repeat([nreplicates], nnestedfactors)
+            for i ∈ 1:(nnestedfactors - 1)
+                nestedeffectdenominators[1:(end - i + 1)] .*= nnestedfactorlevels[end - i + 2]
+            end
+            σ²nested = differences[nestedrange] ./ nestedeffectdenominators
+            σ² = [σ²; σ²nested]
+        end
+
+        σ²total = sum(σ²) + denominators[end].ms
+        ω² = σ² ./ σ²total
+    end
+
+
+
+    return AnovaResult.(results, ω²)
 end
