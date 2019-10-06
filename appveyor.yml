@@ -4,7 +4,6 @@ environment:
     - julia_version: 1.2
     - julia_version: nightly
     
-    
 matrix:
   allow_failures:
     - julia_version: nightly
