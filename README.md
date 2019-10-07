@@ -16,9 +16,39 @@ It uses multidimensional arrays to interpret the structure of the data. Replicat
 
 Can also work with multiple vectors and DataFrames.
 
-New in v0.5: ω² effect size (Disclaimer: effect size calculations for nested and 3-way mixed ANOVA is inferred and may not be correct.)
+**New in v0.5**: ω² effect size (Disclaimer: effect size calculations for nested and 3-way mixed ANOVA is inferred and may not be correct.)
 
-NOTE: Choice of error terms for the F tests in mixed ANOVA follows Zar 1999, _Biostatistical Analysis_, and Howell 2013, _Statistical Methods for Psychology_, which differs from SPSS 25 Univariate GLM as follows:
+See docstring for usage.
+
+Examples
+--------
+```
+data                 # N-dimensional matrix of observations
+levene(data)         # test data for homogeniety of variance
+result = anova(data) # conduct the test
+plot(result)         # create pairwise factor plots
+```
+```
+data                          # vector of observations
+factors                       # vector of factor level assignment vectors
+levene(data)                  # test data for homogeniety of variance
+result = anova(data, factors) # conduct the test
+plot(result)                  # create pairwise factor plots
+```
+```
+df                                         # DataFrame
+factors                                    # vector of symbols for factor assignment columns
+levene(df, :observations, factors)         # test data for homogeniety of variance
+result = anova(df, :observations, factors) # conduct the test
+plot(result)                               # create pairwise factor plots
+```
+
+**Experimental, use at own risk!**
+
+
+Differences from SPSS
+---------------------
+Choice of error terms for the F tests in mixed ANOVA follows Zar 1999, _Biostatistical Analysis_, and Howell 2013, _Statistical Methods for Psychology_, which differs from SPSS 25 Univariate GLM as follows:
 
 2-way ANOVA with 1 fixed and 1 random factor
 
@@ -42,28 +72,4 @@ NOTE: Choice of error terms for the F tests in mixed ANOVA follows Zar 1999, _Bi
 | SimpleANOVA.jl | A×C + A×B - A×B×C | B×C               | B×C               | A×B×C | A×B×C | Error | Error |
 
 
-See docstring for usage.
 
-Examples:
-```
-data                 # N-dimensional matrix of observations
-levene(data)         # test data for homogeniety of variance
-result = anova(data) # conduct the test
-plot(result)         # create pairwise factor plots
-```
-```
-data                          # vector of observations
-factors                       # vector of factor level assignment vectors
-levene(data)                  # test data for homogeniety of variance
-result = anova(data, factors) # conduct the test
-plot(result)                  # create pairwise factor plots
-```
-```
-df                                         # DataFrame
-factors                                    # vector of symbols for factor assignment columns
-levene(df, :observations, factors)         # test data for homogeniety of variance
-result = anova(df, :observations, factors) # conduct the test
-plot(result)                               # create pairwise factor plots
-```
-
-Experimental, use at own risk!
