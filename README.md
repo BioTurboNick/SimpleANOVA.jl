@@ -18,6 +18,30 @@ Can also work with multiple vectors and DataFrames.
 
 New in v0.5: ω² effect size (Disclaimer: effect size calculations for nested and 3-way mixed ANOVA is inferred and may not be correct.)
 
+NOTE: Choice of error terms for the F tests in mixed ANOVA follows Zar 1999, _Biostatistical Analysis_, and Howell 2013, _Statistical Methods for Psychology_, which differs from SPSS 25 Univariate GLM as follows:
+
+2-way ANOVA with 1 fixed and 1 random factor
+
+|                | Fixed | Random |
+|----------------|-------|--------|
+| SPSS           | Error | Error  |
+| SimpleANOVA.jl | A×B   | Error  |
+
+3-way ANOVA with 2 fixed and 1 random factors
+
+|                | A (Fixed) | B (Fixed) | C (Random)        | A×B   | A×C   | B×C   | A×B×C |
+|----------------|-----------|-----------|-------------------|-------|-------|-------|-------|
+| SPSS           | A×C       | B×C       | A×C + B×C - A×B×C | A×B×C | A×B×C | A×B×C | Error |
+| SimpleANOVA.jl | A×C       | B×C       | Error             | A×B×C | Error | Error | Error |
+
+3-way ANOVA with 1 fixed and 2 random factors
+
+|                | A (Fixed)         | B (Random)        | C (Random)        | A×B   | A×C   | B×C   | A×B×C |
+|----------------|-------------------|-------------------|-------------------|-------|-------|-------|-------|
+| SPSS           | A×C + A×B - A×B×C | A×B + B×C - A×B×C | A×C + B×C - A×B×C | A×B×C | A×B×C | A×B×C | Error |
+| SimpleANOVA.jl | A×C + A×B - A×B×C | B×C               | B×C               | A×B×C | A×B×C | Error | Error |
+
+
 See docstring for usage.
 
 Examples:
