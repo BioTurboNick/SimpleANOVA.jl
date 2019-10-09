@@ -174,7 +174,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     results = ftest.(numerators, denominators)
 
     crossedcellmeans = crossedcellsums ./ npercrossedcell
-    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # 21 kb!!!! allocated here
+    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # 12 kb allocated
     data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans) # 1 kb allocated here
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
@@ -402,8 +402,14 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
+
+function z()
+    c = [1;2;3]
+    b = c .== 1
+end
+
 function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
-    differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)]
+    differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)] # 1 kb between this line and next
     crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
 
     if nreplicates == 1 && nnestedfactors > 0
@@ -428,38 +434,38 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
             ω² = σ² ./ σ²total
         end
     else
-        if ncrossedfactors == 2
+        if ncrossedfactors == 2 # this whole block not quite 1 kb
             if npercrossedcell > 1
-                interactions = [[1,2]]
+                interactionindexes = [[1,2]]
                 imax = 3
             else
-                interactions = []
+                interactionindexes = []
                 imax = 2
             end
         else
             if npercrossedcell > 1
-                interactions = [[1,2], [1,3], [2,3], [1,2,3]]
+                interactionindexes = [[1,2], [1,3], [2,3], [1,2,3]]
                 imax = 7
             else
-                interactions = [[1,2], [1,3], [2,3]]
+                interactionindexes = [[1,2], [1,3], [2,3]]
                 imax = 6
             end
         end
 
-        icrossed = 1:ncrossedfactors
+        icrossed = 1:ncrossedfactors # this whole block 1 kb
         iother = ncrossedfactors < imax ? ((ncrossedfactors + 1):imax) : []
         factors = Vector{Int}(undef, imax)
         factors[icrossed] = [crossedfactortypes[i] == fixed ? crossedfactordfs[i] : 1 for i ∈ icrossed]
-        factors[iother] = [prod(factors[x]) for x ∈ interactions]
-        effectsdenominators = repeat([npercrossedcell], imax)
+        factors[iother] = [prod(factors[x]) for x ∈ interactionindexes]
 
-        israndom = crossedfactortypes .== random
-        isfixed = crossedfactortypes .== fixed
+        effectsdenominators = repeat([npercrossedcell], imax)
+        israndom = [x == random for x ∈ crossedfactortypes] # Originally used broadcasted equality (.==) but causes high allocations as of 1.3.0-rc3
+        isfixed = [x == fixed for x ∈ crossedfactortypes]
         crossedeffectsdenominators = effectsdenominators[icrossed]
         crossedeffectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
         crossedeffectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ icrossed[israndom]]
         effectsdenominators[icrossed] = crossedeffectsdenominators
-        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactions]
+        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactionindexes] # 7kb - set intersection is 1kb, has to be done for each interaction
 
         σ² = factors .* differences[1:imax] ./ effectsdenominators
 
