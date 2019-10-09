@@ -131,7 +131,6 @@ function validate(factortypes::Vector{FactorType}, factornames::Vector{<:Abstrac
         length(factortypes) == nfactors || error("factortypes must have an entry for each factor.")
         nested ∉ factortypes || factortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || error("nested entries must come before crossed factors")
     end
-
     if !isempty(factornames)
         nfactors ≤ 26 || error("Can only automatically name up to 26 factors. Provide names explicitly.")
         length(factornames) == nfactors || error("factornames must have an entry for each factor.")
@@ -149,27 +148,24 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     amongallnested, crossedcellsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, constant)
     cells = cellscalc(cellsums, nreplicates, ncells, constant)
 
+    npercrossedcell = nreplicates * prod(nnestedfactorlevels)
+
     crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, constant, crossedfactornames) # 3kb allocated here, possibly can't be avoided
-    interactions, interactionsmap = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, constant, crossedfactornames) # 9 kb allocated here!
+    interactions = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, constant, crossedfactornames, npercrossedcell) # 4 kb allocated here, down from 9 kb
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
-    error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates)
 
-    numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
-    crossedbasedenominator = nnestedfactors > 0 ? nestedfactors[1] : error;
-    denominators = getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbasedenominator, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)# 2-3kb allocated, 50 allocations
-
-
-    numerators[1:ncrossedfactors] = reverse(numerators[1:ncrossedfactors])
-    if (ncrossedfactors > 2) # some hacky reverse stuff going on  just to make it work. Really needs to be reworked to avoid.
-        denominators[1:ncrossedfactors] = reverse(denominators[1:ncrossedfactors])
-    end
+    reverse!(crossedfactors)
     reverse!(ncrossedfactorlevels)
-    if nnestedfactors > 1
-        reverse!(nnestedfactorlevels)
+    if ncrossedfactors == 3 && nreplicates > 1
+        interactions[1:3] = reverse(interactions[1:3])
     end
 
-    # drop least significant test if nreplicates == 1; either the lowest interaction level, or lowest nesting level if present
-    if nreplicates == 1
+    error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates) # could probably condense the otherfactor here
+    numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
+    denominators = getdenominators(interactions, nestedfactors, error, crossedfactortypes, ncrossedfactors, nnestedfactors) # 2 kb allocated here
+
+    # drop least significant test if nreplicates == 1; lowest nesting level. Lowest interaction previously dropped if no nested factors. Should look to do same for nesting.
+    if nnestedfactors > 0 && nreplicates == 1
         droppedfactor = pop!(numerators)
         pop!(denominators)
     end
@@ -177,12 +173,9 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     # perform test
     results = ftest.(numerators, denominators)
 
-    npercrossedcell = nreplicates * prod(nnestedfactorlevels)
     crossedcellmeans = crossedcellsums ./ npercrossedcell
-
-    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # note: effect size doesn't account for nesting
-
-    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
+    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # 12 kb allocated
+    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans) # 1 kb allocated here
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 
@@ -254,27 +247,21 @@ function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplic
     amongallnested, nestedsums, nupperfactorlevels, nlowerfactorlevels
 end
 
-function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactorlabels)
-    interactionsmap = Dict{Any,AnovaFactor}()
+function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactorlabels, npercrossedcell)
     interactions = Vector{AnovaFactor}()
-    if ncrossedfactors > 1
+    if (ncrossedfactors == 2 && npercrossedcell > 1) || ncrossedfactors == 3
         pairwise = pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactorlabels)
-        interactionsmap[(1,2)] = pairwise[1,2]
-        interactionsmap[(2,1)] = pairwise[1,2]
-        push!(interactions, interactionsmap[(1,2)])
-        if ncrossedfactors > 2
-            threewise = threewisecalc(cells, crossedfactors, pairwise, crossedfactorlabels)
-            interactionsmap[(1,3)] = pairwise[1,3]
-            interactionsmap[(3,1)] = pairwise[1,3]
-            interactionsmap[(2,3)] = pairwise[2,3]
-            interactionsmap[(3,2)] = pairwise[2,3]
-            interactionsmap[(1,2,3)] = threewise
-            push!(interactions, interactionsmap[(1,3)], interactionsmap[(2,3)])
-            reverse!(interactions)
-            push!(interactions, interactionsmap[(1,2,3)])
+        push!(interactions, pairwise[1,2])
+        if ncrossedfactors == 3
+            push!(interactions, pairwise[1,3])
+            push!(interactions, pairwise[2,3])
+            if npercrossedcell > 1
+                threewise = threewisecalc(cells, crossedfactors, pairwise, crossedfactorlabels)
+                push!(interactions, threewise)
+            end
         end
     end
-    return interactions, interactionsmap
+    interactions
 end
 
 function pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactorlabels)
@@ -288,7 +275,7 @@ function pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfacto
             pairwise[i,j] = pairwise[j,i] = AnovaFactor("$(crossedfactorlabels[j]) × $(crossedfactorlabels[i])", ss, df)
         end
     end
-    return pairwise
+    pairwise
 end
 
 function threewisecalc(cells, factors, pairwise, crossedfactorlabels)
@@ -311,101 +298,98 @@ function nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, inter
             push!(nestedfactors, AnovaFactor(nestedfactorlabels[i], ss, df))
         end
     end
-    return nestedfactors
+    nestedfactors
 end
 
 function getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
     numerators = copy(crossedfactors)
-
-    if ncrossedfactors > 1
+    if ncrossedfactors > 1 && length(interactions) > 0
         push!(numerators, interactions[1])
-        if ncrossedfactors > 2
-            push!(numerators, interactions[2], interactions[3], interactions[4])
-        end
+        ncrossedfactors > 2 && push!(numerators, interactions[2], interactions[3], interactions[4])
     end
-
-    if nnestedfactors > 0
-        append!(numerators, nestedfactors)
-    end
-
-    return numerators
+    nnestedfactors > 0 && append!(numerators, nestedfactors)
+    numerators
 end
 
-function getdenominators(nnestedfactors, nestedfactors, nreplicates, crossedbasedenominator, error, total, crossedfactors, ncrossedfactors, crossedfactortypes, interactionsmap)
-    if ncrossedfactors == 1
-        denominators = [crossedbasedenominator]
-    elseif ncrossedfactors == 2
-        if all(f -> f == fixed, crossedfactortypes)
-            crosseddenominators = repeat([crossedbasedenominator], ncrossedfactors)
-        elseif all(f -> f == random, crossedfactortypes)
-            crosseddenominators = repeat([interactionsmap[(1,2)]], ncrossedfactors)
-        else
-            crosseddenominators = map(f -> f == fixed ? interactionsmap[(1,2)] : crossedbasedenominator, crossedfactortypes)
-        end
+function getdenominators(interactions, nestedfactors, error, crossedfactortypes, ncrossedfactors, nnestedfactors)
+    nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
 
-        denominators = [crosseddenominators; crossedbasedenominator]
-    elseif ncrossedfactors == 3
-        if all(f -> f == fixed, crossedfactortypes)
-            crosseddenominators = repeat([crossedbasedenominator], ncrossedfactors)
-            pairwiseinteractiondenominators = repeat([crossedbasedenominator], ncrossedfactors)
-        elseif all(f -> f == random, crossedfactortypes)
-            crosseddenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
-            for i ∈ 1:ncrossedfactors
-                otherfactors = (1:ncrossedfactors)[Not(i)]
-
-                j = otherfactors[1]
-                k = otherfactors[2]
-                crosseddenominators[i] = threewayinteraction(interactionsmap[(i,j)], interactionsmap[(i,k)], interactionsmap[(1,2,3)])
-            end
-            pairwiseinteractiondenominators = repeat([interactionsmap[(1,2,3)]], ncrossedfactors)
-        elseif count(f -> f == random, crossedfactortypes) == 1
-            i = findfirst(f -> f == random, reverse(crossedfactortypes))
-
-            crosseddenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
-            crosseddenominators[i] = crossedbasedenominator
-
-            fixedindexes = (1:ncrossedfactors)[Not(i)]
-            for j ∈ fixedindexes
-                crosseddenominators[j] = interactionsmap[(i,j)]
-            end
-
-            fixedinteractionindex = sum(fixedindexes) - 2
-            pairwiseinteractiondenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
-            pairwiseinteractiondenominators[fixedinteractionindex] = interactionsmap[(1,2,3)]
-            pairwiseinteractiondenominators[Not(fixedinteractionindex)] .= crossedbasedenominator
-        elseif count(f -> f == random, crossedfactortypes) == 2
-            i = findfirst(f -> f == fixed, reverse(crossedfactortypes))
-            otherfactors = (1:ncrossedfactors)[Not(i)]
-            j = otherfactors[1]
-            k = otherfactors[2]
-
-            crosseddenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
-            crosseddenominators[i] = threewayinteraction(interactionsmap[(i,j)], interactionsmap[(i,k)], interactionsmap[(1,2,3)])
-            crosseddenominators[otherfactors] .= interactionsmap[(j,k)]
-
-            randominteractionindex = sum(otherfactors) - 2
-            pairwiseinteractiondenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
-            pairwiseinteractiondenominators[randominteractionindex] = crossedbasedenominator
-            pairwiseinteractiondenominators[Not(randominteractionindex)] .= interactionsmap[(1,2,3)]
-        end
-
-        denominators = [crosseddenominators; reverse(pairwiseinteractiondenominators); crossedbasedenominator]
-    end
-
-    # determine correct denominators for nested factors
     if nnestedfactors > 0
-        nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
+        crossedbasedenominator = nestedfactors[1]
         nesteddenominators[1:end-1] = nestedfactors[2:end]
         nesteddenominators[end] = error
-        append!(denominators, nesteddenominators)
+    else
+        crossedbasedenominator = error
     end
 
+    if ncrossedfactors == 1
+        denominators = [crossedbasedenominator]
+    elseif length(interactions) == 0
+        denominators = repeat([crossedbasedenominator], ncrossedfactors)
+    else # 2 or 3 crossed factors
+        ninteractions = ncrossedfactors == 2 ? 1 : 4
+        crosseddenominators = Vector{AnovaFactor}(undef, ncrossedfactors)
+        pairinteractiondenominators = Vector{AnovaFactor}(undef, ninteractions - 1)
+
+        if all(f -> f == fixed, crossedfactortypes)
+            crosseddenominators = repeat([crossedbasedenominator], ncrossedfactors)
+            pairinteractiondenominators = repeat([crossedbasedenominator], ninteractions - 1)
+
+        elseif all(f -> f == random, crossedfactortypes)
+            if ncrossedfactors == 2
+                crosseddenominators = repeat(interactions, ncrossedfactors)
+
+            else # 3 crossed factors
+                crosseddenominators = Vector{AnovaFactor}(undef, 3)
+                for i ∈ 1:3
+                    j1, j2 = (1:3)[Not(i)]
+                    crosseddenominators[i] = threewayinteraction(interactions[i + j1 - 2], interactions[i + j2 - 2], interactions[4])
+                end
+                pairinteractiondenominators = repeat([interactions[4]], ninteractions - 1)
+
+            end
+
+        else # has both random and fixed factors
+            if ncrossedfactors == 2
+                crosseddenominators = map(f -> f == fixed ? interactions[1] : crossedbasedenominator, crossedfactortypes)
+
+            else # 3 crossed factors
+                randomcount = count(f -> f == random, crossedfactortypes)
+                if randomcount == 1
+                    randomi = findfirst(f -> f == random, crossedfactortypes)
+                    fixedi = (1:3)[Not(randomi)]
+                    crosseddenominators = Vector{AnovaFactor}(undef, 3)
+                    crosseddenominators[fixedi] = [interactions[i + randomi - 2] for i ∈ fixedi]
+                    crosseddenominators[randomi] = crossedbasedenominator
+
+                    fixedinteractioni = sum(fixedi) - 2
+                    pairinteractiondenominators = Vector{AnovaFactor}(undef, 3)
+                    pairinteractiondenominators[fixedinteractioni] = interactions[4]
+                    pairinteractiondenominators[(1:3)[Not(fixedinteractioni)]] .= crossedbasedenominator
+
+                else # 2 random factors
+                    fixedi = findfirst(f -> f == fixed, crossedfactortypes)
+                    randomi = (1:3)[Not(fixedi)]
+                    crosseddenominators = Vector{AnovaFactor}(undef, 3)
+                    crosseddenominators[fixedi] = threewayinteraction(interactions[fixedi + randomi[1] - 2], interactions[fixedi + randomi[2] - 2], interactions[4])
+                    crosseddenominators[randomi] .= interactions[randomi[1] + randomi[2] - 2]
+
+                    randominteractioni = sum(randomi) - 2
+                    pairinteractiondenominators = Vector{AnovaFactor}(undef, 3)
+                    pairinteractiondenominators[(1:3)[Not(randominteractioni)]] .= interactions[4]
+                    pairinteractiondenominators[randominteractioni] = crossedbasedenominator
+
+                end
+            end
+        end
+        denominators = [crosseddenominators; pairinteractiondenominators; crossedbasedenominator]
+    end
+    append!(denominators, nesteddenominators)
     denominators
 end
 
 function threewayinteraction(interaction_ab, interaction_bc, interaction_abc)
     reducedmeansquare(factor::AnovaFactor) = factor.ms ^ 2 / factor.df
-
     ms = interaction_ab.ms + interaction_bc.ms - interaction_abc.ms
     df = ms ^ 2 / (reducedmeansquare(interaction_ab) + reducedmeansquare(interaction_bc) + reducedmeansquare(interaction_abc))
     AnovaFactor("", ms * df, df, ms)
@@ -418,8 +402,14 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
+
+function z()
+    c = [1;2;3]
+    b = c .== 1
+end
+
 function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
-    differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)]
+    differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)] # 1 kb between this line and next
     crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
 
     if nreplicates == 1 && nnestedfactors > 0
@@ -434,7 +424,7 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
             effectdenominators = repeat([nreplicates], nnestedfactors + 1)
             nfactorlevels = [ncrossedfactorlevels; nnestedfactorlevels]
             effectdenominators[1] *= prod(nfactorlevels)
-            factors = ones(nnestedfactors + 1)
+            factors = ones(Int, nnestedfactors + 1)
             factors[1] = crossedfactordfs[1]
             for i ∈ 2:nnestedfactors
                 effectdenominators[2:(end - i + 1)] .*= nfactorlevels[end - i + 2]
@@ -444,38 +434,38 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
             ω² = σ² ./ σ²total
         end
     else
-        if ncrossedfactors == 2
+        if ncrossedfactors == 2 # this whole block not quite 1 kb
             if npercrossedcell > 1
-                interactions = [[1,2]]
+                interactionindexes = [[1,2]]
                 imax = 3
             else
-                interactions = []
+                interactionindexes = []
                 imax = 2
             end
         else
             if npercrossedcell > 1
-                interactions = [[1,2], [1,3], [2,3], [1,2,3]]
+                interactionindexes = [[1,2], [1,3], [2,3], [1,2,3]]
                 imax = 7
             else
-                interactions = [[1,2], [1,3], [2,3]]
+                interactionindexes = [[1,2], [1,3], [2,3]]
                 imax = 6
             end
         end
 
-        icrossed = 1:ncrossedfactors
-        iother = (ncrossedfactors + 1):imax
-        factors = zeros(imax)
+        icrossed = 1:ncrossedfactors # this whole block 1 kb
+        iother = ncrossedfactors < imax ? ((ncrossedfactors + 1):imax) : []
+        factors = Vector{Int}(undef, imax)
         factors[icrossed] = [crossedfactortypes[i] == fixed ? crossedfactordfs[i] : 1 for i ∈ icrossed]
-        factors[iother] = [prod(factors[x]) for x ∈ interactions]
-        effectsdenominators = repeat([npercrossedcell], imax)
+        factors[iother] = [prod(factors[x]) for x ∈ interactionindexes]
 
-        israndom = crossedfactortypes .== random
-        isfixed = crossedfactortypes .== fixed
+        effectsdenominators = repeat([npercrossedcell], imax)
+        israndom = [x == random for x ∈ crossedfactortypes] # Originally used broadcasted equality (.==) but causes high allocations as of 1.3.0-rc3
+        isfixed = [x == fixed for x ∈ crossedfactortypes]
         crossedeffectsdenominators = effectsdenominators[icrossed]
         crossedeffectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
         crossedeffectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ icrossed[israndom]]
         effectsdenominators[icrossed] = crossedeffectsdenominators
-        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactions]
+        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactionindexes] # 7kb - set intersection is 1kb, has to be done for each interaction
 
         σ² = factors .* differences[1:imax] ./ effectsdenominators
 
@@ -492,8 +482,5 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
         σ²total = sum(σ²) + denominators[end].ms
         ω² = σ² ./ σ²total
     end
-
-
-
-    return AnovaResult.(results, ω²)
+    AnovaResult.(results, ω²)
 end
