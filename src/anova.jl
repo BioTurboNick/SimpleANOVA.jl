@@ -131,7 +131,6 @@ function validate(factortypes::Vector{FactorType}, factornames::Vector{<:Abstrac
         length(factortypes) == nfactors || error("factortypes must have an entry for each factor.")
         nested ∉ factortypes || factortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || error("nested entries must come before crossed factors")
     end
-
     if !isempty(factornames)
         nfactors ≤ 26 || error("Can only automatically name up to 26 factors. Provide names explicitly.")
         length(factornames) == nfactors || error("factornames must have an entry for each factor.")
@@ -152,7 +151,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
 
     crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, constant, crossedfactornames) # 3kb allocated here, possibly can't be avoided
-    interactions = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, constant, crossedfactornames, npercrossedcell) # 9 kb allocated here!
+    interactions = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, constant, crossedfactornames, npercrossedcell) # 4 kb allocated here, down from 9 kb
     nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
 
     reverse!(crossedfactors)
@@ -163,7 +162,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
 
     error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates) # could probably condense the otherfactor here
     numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
-    denominators = getdenominators(interactions, nestedfactors, error, crossedfactortypes, ncrossedfactors, nnestedfactors)
+    denominators = getdenominators(interactions, nestedfactors, error, crossedfactortypes, ncrossedfactors, nnestedfactors) # 2 kb allocated here
 
     # drop least significant test if nreplicates == 1; lowest nesting level. Lowest interaction previously dropped if no nested factors. Should look to do same for nesting.
     if nnestedfactors > 0 && nreplicates == 1
@@ -175,8 +174,8 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     results = ftest.(numerators, denominators)
 
     crossedcellmeans = crossedcellsums ./ npercrossedcell
-    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # note: effect size doesn't account for nesting
-    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
+    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # 21 kb!!!! allocated here
+    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans) # 1 kb allocated here
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 
