@@ -50,10 +50,10 @@ Choice of error terms for the F tests in mixed ANOVA follows Zar 1999, _Biostati
 
 2-way ANOVA with 1 fixed and 1 random factor
 
-|                | Fixed | Random |
-|----------------|-------|--------|
-| SPSS           | Error | Error  |
-| SimpleANOVA.jl | A×B   | Error  |
+|                | A (Fixed) | B (Random) |
+|----------------|-----------|------------|
+| SPSS           | Error     | Error      |
+| SimpleANOVA.jl | A×B       | Error      |
 
 3-way ANOVA with 2 fixed and 1 random factors
 
