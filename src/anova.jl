@@ -402,12 +402,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-
-function z()
-    c = [1;2;3]
-    b = c .== 1
-end
-
 function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
     differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)] # 1 kb between this line and next
     crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
