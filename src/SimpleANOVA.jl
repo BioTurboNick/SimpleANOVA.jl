@@ -37,5 +37,6 @@ end
 
 
 export anova, ftest, plot, levene
+export AnovaEffect, AnovaValue, AnovaResult, AnovaData
 
 end

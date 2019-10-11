@@ -65,5 +65,3 @@ function show(io::IO, ad::AnovaData)
     println(io, separator)
     foreach(i -> println(io, rows[i]), 1:length(rows))
 end
-
-export AnovaData

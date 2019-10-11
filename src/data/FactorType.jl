@@ -10,5 +10,3 @@
 @enum FactorType fixed random nested
 
 Broadcast.broadcastable(a::FactorType) = (a,) # workaround for current behavior
-
-export FactorType, fixed, random, nested
