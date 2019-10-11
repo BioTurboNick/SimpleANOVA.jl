@@ -65,17 +65,13 @@ function levene(observations::AbstractVector{T}, factorassignments::AbstractVect
     ncells = prod(nfactorlevels)
     nreplicates = Int(N / ncells)
 
-    nlevels = [nreplicates; ncells]
+    nlevels = [nreplicates; nfactorlevels]
     sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
                          sum([factorassignments[i] .* prod(nlevels[1:i]) for i ∈ 1:nfactors]))
-    observationsmatrix = reshape(observations[sortorder], nlevels...)
-
-
+    observationsmatrix = reshape(observations[sortorder], nreplicates, ncells)
 
     levenekernel(observationsmatrix, nreplicates, ncells)
 end
-
-# need median version
 
 function levenekernel(observations, nreplicates, ncells)
     cellsums = sumfirstdim(observations)
