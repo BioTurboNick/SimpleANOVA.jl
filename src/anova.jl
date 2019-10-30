@@ -248,7 +248,7 @@ function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplic
 end
 
 function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactorlabels, npercrossedcell)
-    interactions = Vector{AnovaFactor}()
+    interactions = AnovaFactor[]
     if (ncrossedfactors == 2 && npercrossedcell > 1) || ncrossedfactors == 3
         pairwise = pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, nnestedfactorlevels, nreplicates, C, crossedfactorlabels)
         push!(interactions, pairwise[1,2])
