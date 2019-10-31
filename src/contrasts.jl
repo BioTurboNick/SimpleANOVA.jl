@@ -11,8 +11,9 @@ Note: If you do nonorthogonal contrasts, use the Bonferroni or Šidák correctio
 α level (the level at which you consider a result likely to be true):
   Bonferroni: α′ = α/c for c contrasts
   Šidák:      α′ = 1 - (1 - α)^(1 / c) (slightly better)
+where c = number of contrasts
 
-Note: Effect size is calcluated using the overall error term. Other choices are possible,
+Note: Effect size is calcluated using the error term associated with the factor. Other choices are possible,
 including average of each group error; or the error associated with a control.
 """
 function contrast(anovaresult::AnovaData, groupassignment::Vector{Int}, factorindex::Int = 1)
@@ -34,7 +35,7 @@ function contrast(anovaresult::AnovaData, groupassignment::Vector{Int}, factorin
     contrastcoefficients[group1levels] .= 1 / group1count
     contrastcoefficients[group2levels] .= -1 / group2count
 
-    errorfactor = anovaresult.effects[end]
+    errorfactor = anovaresult.crossedfactorsdenominators[factorindex]
     ψ = sum(contrastcoefficients .* anovaresult.crossedcellmeans)
     contrast = anovaresult.npercrossedcell * ψ ^ 2
     error = sum(contrastcoefficients .^ 2) * errorfactor.ms
