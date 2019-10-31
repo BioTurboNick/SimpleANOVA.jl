@@ -40,7 +40,7 @@ function __init__()
 end
 
 
-export anova, ftest, plot, levene, contrast
+export anova, ftest, plot, levene, contrast, helmertcontrasts, differencecontrasts, repeatedcontrasts, simplecontrasts
 export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData, AnovaContrastResult
 export FactorType, fixed, random, nested
 

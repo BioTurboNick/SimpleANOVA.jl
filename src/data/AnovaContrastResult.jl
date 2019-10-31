@@ -21,6 +21,10 @@ struct AnovaContrastResult <: AnovaEffect
     r::Float64
 end
 
+struct AnovaContrastResults
+    results::Vector{AnovaContrastResult}
+end
+
 import Base.isapprox
 isapprox(x::AnovaContrastResult, y::AnovaContrastResult) =
     x.contrast ≈ y.contrast &&
@@ -30,18 +34,18 @@ isapprox(x::AnovaContrastResult, y::AnovaContrastResult) =
     x.r ≈ y.r
 
 import Base.show
-show(io::IO, acr::AnovaContrastResult) = show(io, [acr])
-function show(io::IO, acr::Vector{AnovaContrastResult})
+show(io::IO, acr::AnovaContrastResult) = show(io, AnovaContrastResults([acr]))
+function show(io::IO, acr::AnovaContrastResults)
     colnames = ["Contrast", "DF", "F", "p", "r"]
-    nrows = length(acr)
+    nrows = length(acr.results)
 
     compactshow(x) = sprint(show, x, context=:compact=>true)
 
-    contrast = [e.contrast |> compactshow for e ∈ acr]
-    df = [e.df |> Int |> compactshow for e ∈ acr]
-    f = [e.f |> compactshow for e ∈ acr]
-    p = [e.p |> compactshow for e ∈ acr]
-    r = [e.r |> compactshow for e ∈ acr]
+    contrast = [e.contrast |> compactshow for e ∈ acr.results]
+    df = [e.df |> Int |> compactshow for e ∈ acr.results]
+    f = [e.f |> compactshow for e ∈ acr.results]
+    p = [e.p |> compactshow for e ∈ acr.results]
+    r = [e.r |> compactshow for e ∈ acr.results]
 
     ndec = [length.(last.(split.(values, "."))) for values ∈ [contrast, f, p, r]]
     maxndec = maximum.(ndec)
