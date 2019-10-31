@@ -6,6 +6,6 @@
 
         result = AnovaData(data, data[1], 1, [5], 8, [AnovaFactor(r.name, r.ss, r.df, r.ms) for r ∈ data[2:2]], [data[end]], [4.00; 10.00; 11.00; 24.00; 29.00])
 
-        @test all(contrast(result, [1, 1, 1, 2, 2]) .≈ (99.008334, 9.6573624e-12, 3.2114433))
+        @test all(contrast(result, [1, 1, 1, 2, 2]) .≈ (99.008334, 9.6573624e-12, 0.85954768))
     end
 end

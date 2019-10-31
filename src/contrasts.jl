@@ -38,9 +38,10 @@ function contrast(anovaresult::AnovaData, groupassignment::Vector{Int})
     fdist = FDist(1, errorfactor.df)
     p = ccdf(fdist, f)
 
-    effectsize = abs(ψ) / sqrt(errorfactor.ms)
+    effectsize = sqrt(f / (f  + errorfactor.df)) # t^2 == f
+    #cohen's d: effectsize = ψ / sqrt(errorfactor.ms) ; preferred when group sizes very different
 
-    (f, p, effectsize)
+    AnovaContrastResult(contrast, errorfactor.df, f, p, effectsize)
 end
 
 
