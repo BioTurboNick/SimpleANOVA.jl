@@ -15,17 +15,22 @@ Note: If you do nonorthogonal contrasts, use the Bonferroni or Šidák correctio
 Note: Effect size is calcluated using the overall error term. Other choices are possible,
 including average of each group error; or the error associated with a control.
 """
-function contrast(anovaresult::AnovaData, groupassignment::Vector{Int})
-    length(anovaresult.effects) == 3                               || error("1-factor only")
-    all(0 .≤ groupassignment .≤ 2)                                 || error("valid groups are 0, 1, and 2")
-    length(groupassignment) == anovaresult.ncrossedfactorlevels[1] || error("each level must be assigned to a group")
+function contrast(anovaresult::AnovaData, groupassignment::Vector{Int}, factorindex::Int = 1)
+    0 < factorindex ≤ anovaresult.ncrossedfactors                            || error("factor index must be a valid factor")
+    all(0 .≤ groupassignment .≤ 2)                                           || error("valid groups are 0, 1, and 2")
+    length(groupassignment) == anovaresult.ncrossedfactorlevels[factorindex] || error("each level must be assigned to a group")
 
-    group1levels = groupassignment .== 1
-    group2levels = groupassignment .== 2
+    lowerfactorlevels = prod(anovaresult.ncrossedfactorlevels[1:(factorindex-1)])
+    upperfactorlevels = prod(anovaresult.ncrossedfactorlevels[(factorindex+1):anovaresult.ncrossedfactors])
+
+    # factorindex is in the order the factors appear in the result
+    # but the crossedcellmeans dimensions are in reverse order (as input)
+    group1levels = repeat(groupassignment .== 1, outer = upperfactorlevels, inner = lowerfactorlevels)
+    group2levels = repeat(groupassignment .== 2, outer = upperfactorlevels, inner = lowerfactorlevels)
     group1count = count(group1levels)
     group2count = count(group2levels)
 
-    contrastcoefficients = zeros(anovaresult.ncrossedfactorlevels[1])
+    contrastcoefficients = zeros(anovaresult.ncrossedfactorlevels[factorindex] * lowerfactorlevels * upperfactorlevels)
     contrastcoefficients[group1levels] .= 1 / group1count
     contrastcoefficients[group2levels] .= -1 / group2count
 
@@ -46,49 +51,49 @@ end
 
 
 
-helmertcontrasts(anovaresult) = differencecontrast(anovaresult, true)
+helmertcontrasts(anovaresult, factorindex = 1) = differencecontrast(anovaresult, factorindex, true)
 
 """
-    differencecontrast(anovaresult::AnovaData, reverseorder = false)
+    differencecontrast(anovaresult::AnovaData, factorindex = 1, reverseorder = false)
 
 Compute orthogonal contrasts on the factor levels in the original order. Forward direction also known as
 a "Helmert" contrast; revere direction may also be called "Difference" (as in SPSS). See `contrast`
 function for more.
 """
-function differencecontrasts(anovaresult::AnovaData, reverseorder = false)
-    length(anovaresult.effects) == 3 || error("1-factor only")
+function differencecontrasts(anovaresult::AnovaData, factorindex = 1, reverseorder = false)
+    0 < factorindex ≤ anovaresult.ncrossedfactors || error("factor index must be a valid factor")
 
     levels = anovaresult.ncrossedfactorlevels[1]
     groupassignments = [[repeat([0], i - 1); 1; repeat([2], levels - i)] for i ∈ 1:(levels - 1)]
     reverseorder && reverse!.(groupassignments)
 
-    AnovaContrastResults(contrast.(Ref(anovaresult), groupassignments))
+    AnovaContrastResults(contrast.(Ref(anovaresult), groupassignments, factorindex))
 end
 
 """
-    repeatedcontrast(anovaresult::AnovaData)
+    repeatedcontrast(anovaresult::AnovaData, factorindex = 1)
 
 Compute contrasts between neighboring levels. Non-orthogonal. See `contrast` function for more.
 """
-function repeatedcontrasts(anovaresult::AnovaData)
-    length(anovaresult.effects) == 3 || error("1-factor only")
+function repeatedcontrasts(anovaresult::AnovaData, factorindex = 1)
+    0 < factorindex ≤ anovaresult.ncrossedfactors || error("factor index must be a valid factor")
 
-    levels = anovaresult.ncrossedfactorlevels[1]
+    levels = anovaresult.ncrossedfactorlevels[factorindex]
     groupassignments = [[repeat([0], i - 1); 1; 2; repeat([0], levels - i - 1)] for i ∈ 1:(levels - 1)]
 
-    AnovaContrastResults(contrast.(Ref(anovaresult), groupassignments))
+    AnovaContrastResults(contrast.(Ref(anovaresult), groupassignments, factorindex))
 end
 
 """
-    simplecontrast(anovaresult::AnovaData, controlindex = 1)
+    simplecontrast(anovaresult::AnovaData, factorindex = 1, controlindex = 1)
 
 Compute contrasts of each level to a single level (control). Non-orthogonal. See `contrast` function for more.
 """
-function simplecontrasts(anovaresult::AnovaData, controlindex = 1)
-    length(anovaresult.effects) == 3 || error("1-factor only")
-    0 < controlindex ≤ anovaresult.ncrossedfactorlevels[1] || error("index must be for a valid factor level")
+function simplecontrasts(anovaresult::AnovaData, factorindex = 1, controlindex = 1)
+    0 < factorindex ≤ anovaresult.ncrossedfactors || error("factor index must be a valid factor")
+    0 < controlindex ≤ anovaresult.ncrossedfactorlevels[factorindex] || error("index must be for a valid factor level")
 
-    levels = anovaresult.ncrossedfactorlevels[1]
+    levels = anovaresult.ncrossedfactorlevels[factorindex]
     groupassignments = [zeros(Int, levels) for i ∈ 1:(levels - 1)]
     otherlevels = (1:levels)[Not(controlindex)]
     for i ∈ 1:(levels - 1)
@@ -96,18 +101,18 @@ function simplecontrasts(anovaresult::AnovaData, controlindex = 1)
         groupassignments[i][otherlevels[i]] = 2
     end
 
-    AnovaContrastResults(contrast.(Ref(anovaresult), groupassignments))
+    AnovaContrastResults(contrast.(Ref(anovaresult), groupassignments), factorindex)
 end
 
 #= To do this one, need to be able to code a factor level as in both groups
 """
-    deviationcontrasts(anovaresult::AnovaData, controlindex = 1)
+    deviationcontrasts(anovaresult::AnovaData, factorindex = 1, controlindex = 1)
 
 Compute contrasts of each level except one (control) to all levels. Non-orthogonal.
 See `contrast` function for more.
 """
-function deviationcontrast(anovaresult::AnovaData, controlindex = 1)
-    length(anovaresult.effects) == 3 || error("1-factor only")
+function deviationcontrast(anovaresult::AnovaData, factorindex = 1, controlindex = 1)
+    0 < factorindex ≤ anovaresult.ncrossedfactors || error("factor index must be a valid factor")
     0 < controlindex ≤ anovaresult.ncrossedfactorlevels[1] || error("index must be for a valid factor level")
 
     levels = anovaresult.ncrossedfactorlevels[1]
