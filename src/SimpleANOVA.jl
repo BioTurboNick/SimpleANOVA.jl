@@ -24,6 +24,7 @@ include("data/AnovaValue.jl")
 include("data/AnovaFactor.jl")
 include("data/AnovaResult.jl")
 include("data/AnovaData.jl")
+include("data/AnovaContrastResult.jl")
 include("data/FactorType.jl")
 include("anova.jl")
 include("pretests.jl")
@@ -40,7 +41,7 @@ end
 
 
 export anova, ftest, plot, levene, contrast
-export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData
+export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData, AnovaContrastResult
 export FactorType, fixed, random, nested
 
 end
