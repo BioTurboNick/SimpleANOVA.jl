@@ -26,6 +26,7 @@ struct AnovaContrastResults
 end
 
 import Base.isapprox
+isapprox(x::AnovaContrastResults, y::AnovaContrastResults) = x.results .≈ y.results
 isapprox(x::AnovaContrastResult, y::AnovaContrastResult) =
     x.contrast ≈ y.contrast &&
     x.df ≈ y.df &&
