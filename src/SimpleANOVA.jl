@@ -41,7 +41,7 @@ end
 
 
 export anova, ftest, plot, levene, contrast, helmertcontrasts, differencecontrasts, repeatedcontrasts, simplecontrasts
-export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData, AnovaContrastResult
+export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData, AnovaContrastResult, AnovaContrastResults
 export FactorType, fixed, random, nested
 
 end
