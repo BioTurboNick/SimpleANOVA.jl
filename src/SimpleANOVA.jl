@@ -24,9 +24,11 @@ include("data/AnovaValue.jl")
 include("data/AnovaFactor.jl")
 include("data/AnovaResult.jl")
 include("data/AnovaData.jl")
+include("data/AnovaContrastResult.jl")
 include("data/FactorType.jl")
 include("anova.jl")
 include("pretests.jl")
+include("contrasts.jl")
 
 
 function __init__()
@@ -38,8 +40,8 @@ function __init__()
 end
 
 
-export anova, ftest, plot, levene
-export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData
+export anova, ftest, plot, levene, contrast, differencecontrasts, repeatedcontrasts, simplecontrasts
+export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData, AnovaContrastResult, AnovaContrastResults
 export FactorType, fixed, random, nested
 
 end

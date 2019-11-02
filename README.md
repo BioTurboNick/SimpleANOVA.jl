@@ -16,25 +16,28 @@ It uses multidimensional arrays to interpret the structure of the data. Replicat
 Can also work with multiple vectors and DataFrames.
 
 **New in v0.5**: ω² effect size (Disclaimer: effect size calculations for nested and 3-way mixed ANOVA is inferred and may not be correct.)
+**New in v0.6**: Linear contrasts added for planned post-hoc tests between factor levels
 
-See docstring for usage.
+See docstrings for usage.
 
 **Experimental, use at own risk!**
 
 Examples
 --------
 ```
-data                 # N-dimensional matrix of observations
-levene(data)         # test data for homogeniety of variance
-result = anova(data) # conduct the test
-plot(result)         # create pairwise factor plots
+data                           # N-dimensional matrix of observations
+levene(data)                   # test data for homogeniety of variance
+result = anova(data)           # conduct the test
+plot(result)                   # create pairwise factor plots
+differencecontrasts(result, 2) # perform orthogonal series of difference contrasts for the levels of factor 2
 ```
 ```
-data                          # vector of observations
-factors                       # vector of factor level assignment vectors
-levene(data)                  # test data for homogeniety of variance
-result = anova(data, factors) # conduct the test
-plot(result)                  # create pairwise factor plots
+data                           # vector of observations
+factors                        # vector of factor level assignment vectors
+levene(data)                   # test data for homogeniety of variance
+result = anova(data, factors)  # conduct the test
+plot(result)                   # create pairwise factor plots
+contrast(result, [1, 2, 2, 2]) # calculate the contrast between factor level 1 of factor 1 with remaining factor levels
 ```
 ```
 df                                         # DataFrame
@@ -42,6 +45,7 @@ factors                                    # vector of symbols for factor assign
 levene(df, :observations, factors)         # test data for homogeniety of variance
 result = anova(df, :observations, factors) # conduct the test
 plot(result)                               # create pairwise factor plots
+simplecontrasts(result)                    # calculate the contrast between the first factor level (control) to each other level
 ```
 
 Differences from SPSS
@@ -68,6 +72,3 @@ Choice of error terms for the F tests in mixed ANOVA follows Zar 1999, _Biostati
 |----------------|-------------------|-------------------|-------------------|-------|-------|-------|-------|
 | SPSS           | A×C + A×B - A×B×C | A×B + B×C - A×B×C | A×C + B×C - A×B×C | A×B×C | A×B×C | A×B×C | Error |
 | SimpleANOVA.jl | A×C + A×B - A×B×C | B×C               | B×C               | A×B×C | A×B×C | Error | Error |
-
-
-
