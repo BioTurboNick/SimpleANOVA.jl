@@ -16,7 +16,8 @@ It uses multidimensional arrays to interpret the structure of the data. Replicat
 Can also work with multiple vectors and DataFrames.
 
 **New in v0.5**: ω² effect size (Disclaimer: effect size calculations for nested and 3-way mixed ANOVA is inferred and may not be correct.)
-**New in v0.6**: Linear contrasts added for planned post-hoc tests between factor levels
+
+**New in v0.6**: Linear contrasts added for planned post-hoc tests between factor levels. (Disclaimer: Uncertain if contrasts for multiple factors are correct.)
 
 See docstrings for usage.
 
