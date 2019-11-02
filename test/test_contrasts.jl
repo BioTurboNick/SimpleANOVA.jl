@@ -37,7 +37,7 @@
                                              AnovaContrastResult(26972.44225,  36, 22.9516466,   2.8424295e-5, 0.62396317),
                                              AnovaContrastResult(16120.225,    36, 10.28788115,  0.0028101042, 0.47144314)])
 
-            @test false
+            @test all(differencecontrasts(result, true) ≈ expected)
         end
 
         @testset "Simple Contrasts (Default)" begin
