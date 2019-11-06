@@ -21,7 +21,7 @@ function plot(anova::AnovaData)
     for i in 1:nfactors
         otherfactorindexes = (1:nfactors)[Not(i)]
         factormidpoint = (1 + nfactorlevels[i]) / 2
-        factormeans = [mean(anova.cellmeans, dims = (1:nfactors)[Not(i)]) |> vec for i = 1:nfactors]
+        factormeans = [mean(anova.crossedcellmeans, dims = (1:nfactors)[Not(i)]) |> vec for i = 1:nfactors]
         for jindex in 1:(nfactors - 1)
             j = otherfactorindexes[jindex]
             pairfactormeans = mean(anova.crossedcellmeans, dims = otherfactorindexes[Not(jindex)])
