@@ -15,7 +15,7 @@ function plot(anova::AnovaData)
     if nfactors == 1
         error("Not useful to plot just one factor.")
     end
-    nfactorlevels = size(anova.cellmeans)
+    nfactorlevels = size(anova.crossedcellmeans)
     clibrary(:cmocean)
     plots = Array{Plots.Plot, 2}(undef, nfactors, nfactors)
     for i in 1:nfactors
@@ -24,7 +24,7 @@ function plot(anova::AnovaData)
         factormeans = [mean(anova.cellmeans, dims = (1:nfactors)[Not(i)]) |> vec for i = 1:nfactors]
         for jindex in 1:(nfactors - 1)
             j = otherfactorindexes[jindex]
-            pairfactormeans = mean(anova.cellmeans, dims = otherfactorindexes[Not(jindex)])
+            pairfactormeans = mean(anova.crossedcellmeans, dims = otherfactorindexes[Not(jindex)])
             plots[i,j] = plot([selectdim(pairfactormeans, j, k) |> vec for k = 1:nfactorlevels[j]], legend = false)
             scatter!(factormeans[i], markershape = :+, markercolor = :gray)
             scatter!(repeat([factormidpoint], nfactorlevels[j]), factormeans[j], markershape = :x, markercolor = :gray)
