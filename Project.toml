@@ -9,10 +9,10 @@ InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 
 [compat]
-julia = "1"
-Distributions = "0.21.0"
+Distributions = "0.21,0.22"
 InvertedIndices = "1"
 Requires = "0.5.2"
+julia = "1"
 
 [extras]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
