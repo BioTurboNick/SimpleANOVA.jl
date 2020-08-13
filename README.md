@@ -1,7 +1,6 @@
 # SimpleANOVA.jl
 
 [![Build Status](https://travis-ci.org/BioTurboNick/SimpleANOVA.jl.svg?branch=master)](https://travis-ci.org/BioTurboNick/SimpleANOVA.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/e2uhgjm8bwbn9sja/branch/master?svg=true)](https://ci.appveyor.com/project/BioTurboNick/simpleanova-jl/branch/master)
 [![codecov.io](https://codecov.io/github/BioTurboNick/SimpleANOVA.jl/coverage.svg?branch=master)](https://codecov.io/github/BioTurboNick/SimpleANOVA.jl?branch=master)
 
 Analysis of Variance for Julia, the old-fashioned way.
