@@ -17,7 +17,7 @@ tukey(results, [1,2])
 =#
 
 
-using Distributions, Requires, InvertedIndices
+using Distributions, Requires, InvertedIndices, Statistics
 
 include("data/AnovaEffect.jl")
 include("data/AnovaValue.jl")
@@ -42,6 +42,6 @@ end
 
 export anova, ftest, plot, levene, contrast, differencecontrasts, repeatedcontrasts, simplecontrasts
 export AnovaEffect, AnovaValue, AnovaFactor, AnovaResult, AnovaData, AnovaContrastResult, AnovaContrastResults
-export FactorType, fixed, random, nested
+export FactorType, fixed, random, nested, subject, block, within
 
 end

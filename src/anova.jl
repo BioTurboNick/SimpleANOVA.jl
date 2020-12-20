@@ -54,6 +54,9 @@ anova(observations, [nested, random])      # N-way fixed-effects ANOVA with 1 ra
 function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
 
+    isrepeatedmeasures = within ∈ factortypes
+    isrepeatedmeasures && hasreplicates && throw(ErrorException("Repeated measures design cannot have replicates; set hasreplicates = false."))
+
     firstlevelreplicates = eltype(observations) <: Number ? hasreplicates : false
     nfactors = ndims(observations) - (firstlevelreplicates ? 1 : 0)
 
@@ -62,6 +65,8 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
         nremaining = nfactors - length(factortypes)
         append!(factortypes, repeat([fixed], nremaining))
     end
+
+    replace!(factortypes, subject => nested, block => nested)
 
     validate(factortypes, factornames, nfactors)
 
@@ -81,11 +86,15 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     ncells = Int.(length(observations) / (firstlevelreplicates ? nreplicates : 1))
     nfactorlevels = firstlevelreplicates ? [size(observations)...][Not(1)] : [size(observations)...]
 
-    crossedfactornames = factornames[factortypes .≠ nested]
+    crossedfactornames = factornames[factortypes .∉ Ref((nested, within))]
     nestedfactornames = factornames[factortypes .== nested]
 
-    #10kb allocated before this point
-    anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
+    if isrepeatedmeasures
+        withinfactorname = factornames[1]
+        rmanovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, withinfactorname)
+    else
+        anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames)
+    end
 end
 
 #=
@@ -130,6 +139,7 @@ function validate(factortypes::Vector{FactorType}, factornames::Vector{<:Abstrac
     if !isempty(factortypes)
         length(factortypes) == nfactors || error("factortypes must have an entry for each factor.")
         nested ∉ factortypes || factortypes[1:count(t -> t == nested, factortypes)] |> unique |> length == 1 || error("nested entries must come before crossed factors")
+        within ∉ factortypes || (count(t -> t == within, factortypes) == 1 && factortypes[1] == within) || error("maximum of one within entry and must be first")
     end
     if !isempty(factornames)
         nfactors ≤ 26 || error("Can only automatically name up to 26 factors. Provide names explicitly.")
@@ -142,17 +152,15 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     nfactors = nnestedfactors + ncrossedfactors
 
     # collapse replicate dimension
-    cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
-    constant = sum(cellsums) ^ 2 / N
-    total = totalcalc(observations, N, constant)
-    amongallnested, crossedcellsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, constant)
-    cells = cellscalc(cellsums, nreplicates, ncells, constant)
+    cellmeans = eltype(observations) <: Number && nreplicates == 1 ? Float64.(observations) : meanfirstdim(observations)
+    total = totalcalc(observations)
+    amongallnested, crossedcellmeans, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellmeans, nfactorlevels, nnestedfactors, nreplicates)
+    cells = cellscalc(cellmeans, nreplicates)
 
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
-
-    crossedfactors = factorscalc(crossedcellsums, ncrossedfactors, ncrossedfactorlevels, N, constant, crossedfactornames) # 3kb allocated here, possibly can't be avoided
-    interactions = interactionscalc(cells, crossedcellsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, constant, crossedfactornames, npercrossedcell) # 4 kb allocated here, down from 9 kb
-    nestedfactors = nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactornames)
+    crossedfactors = factorscalc(crossedcellmeans, ncrossedfactors, ncrossedfactorlevels, N, crossedfactornames)
+    interactions = interactionscalc(cells, crossedcellmeans, crossedfactors, crossedfactornames, npercrossedcell)
+    nestedfactors = nestedfactorscalc(amongallnested, crossedfactors, interactions, nestedfactornames)
 
     reverse!(crossedfactors)
     reverse!(ncrossedfactorlevels)
@@ -160,9 +168,9 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
         interactions[1:3] = reverse(interactions[1:3])
     end
 
-    error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nnestedfactors, nreplicates) # could probably condense the otherfactor here
-    numerators = getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
-    denominators = getdenominators(interactions, nestedfactors, error, crossedfactortypes, ncrossedfactors, nnestedfactors) # 2 kb allocated here
+    error = errorcalc(total, amongallnested, cells, [crossedfactors; interactions[1:end-1]], nreplicates)
+    numerators = getnumerators(crossedfactors, nestedfactors, interactions)
+    denominators = getdenominators(interactions, nestedfactors, error, crossedfactortypes)
 
     # drop least significant test if nreplicates == 1; lowest nesting level. Lowest interaction previously dropped if no nested factors. Should look to do same for nesting.
     if nnestedfactors > 0 && nreplicates == 1
@@ -173,43 +181,115 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     # perform test
     results = ftest.(numerators, denominators)
 
-    crossedcellmeans = crossedcellsums ./ npercrossedcell
-    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates) # 12 kb allocated
-    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans) # 1 kb allocated here
+    results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
+    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 
     return data
 end
+#=
+function rmanovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, withinfactorname)
+    N = ncells * nreplicates
 
-sumfirstdim(observations::AbstractArray{<:AbstractVector}) = map(sumfirstdim, observations)
-sumfirstdim(observations::AbstractArray{<:Number}) = dropdims(sum(observations, dims = 1), dims = 1)
-sumfirstdim(observations::AbstractVector{<:Number}) = sum(observations, dims = 1) |> first
+    cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
+    C = sum(cellsums) ^ 2 / N
+    total = totalcalc(observations, N, C)
 
-squaresum(x) = sum(x .^ 2)
+    withinnested = squaresum()
 
-function totalcalc(observations, N, C)
-    ss = sum(squaresum, observations) - C
-    df = N - 1
+
+    amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
+    cells = cellscalc(cellsums, nreplicates, ncells, C)
+
+    
+end
+=#
+
+#=
+function rmanovakernel(observations, ncells, nreplicates)
+    N = ncells * nreplicates
+
+    cellsums = eltype(observations) <: Number && nreplicates == 1 ? observations : sumfirstdim(observations)
+    C = sum(cellsums) ^ 2 / N
+    total = totalcalc(observations, N, C)
+    amongallnested, nestedsums, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
+    cells = cellscalc(cellsums, nreplicates, ncells, C)
+
+    subjectsss =
+    subjectsdf = prod(nsubjectsfactorlevels) * nreplicates - 1
+    subjects = AnovaValue(subjectsss, subjectsdf)
+
+    # assumes all among factors and within factors are fixed, subjects is random
+
+    # assumes that amongfactors are topmost
+    if namongfactors == 1
+        amongfactor = factorscalc(nestedsums, namongfactors, namongfactorlevels, N, C, amongfactornames) |> first
+        subjectswithin_amongfactor_ss = subjects.ss - amongfactor.ss
+        subjectswithin_amongfactor_df = subjects.df - amongfactor.df
+        subjectswithin_amongfactor = AnovaFactor(subjectswithin_amongfactor_ss, subjectswithin_amongfactor_df)
+    elseif namongfactors == 2
+        amongfactors = factorscalc(nestedsums, namongfactors, namongfactorlevels, N, C, amongfactornames)
+        amonginteractions, amonginteractionsmap = interactionscalc(cells, nestedsums, amongfactors, namongfactors, namongfactorlevels, nnestedfactorlevels, nreplicates, C, amongfactornames) # 9 kb allocated here!
+        subjectswithin_amongfactor_ss = subjects.ss - sum(f -> f.ss, amongfactors) - amonginteractionsmap[(1,2)].ss
+        subjectswithin_amongfactor_df = subjects.df - sum(f -> f.df, amongfactors) - amonginteractionsmap[(1,2)].df
+        subjectswithin_amongfactor = AnovaFactor(subjectswithin_amongfactor_ss, subjectswithin_amongfactor_df)
+    end
+
+    withinsubjectsss = total.ss - subjects.ss
+    withinsubjectsdf = total.df - subjects.df
+    withinsubjects = AnovaValue(withinsubjectsss, withinsubjectsdf)
+
+    # needs to adjust for not being topmost factors
+    if nwithinfactors == 1
+        withinfactor = factorscalc(nestedsums, nwithinfactors, nwithinfactorlevels, N, C, withinfactornames)
+        factor_subjectswithin_interaction_df = subjectswithin_amongfactor_df * withinfactor.df
+        factor_subjectswithin_interaction_ss = ?????????
+    elseif nwithinfactors == 2
+        withinfactors = factorscalc(nestedsums, nwithinfactors, nwithinfactorlevels, N, C, withinfactornames)
+        withininteractions, withininteractionsmap = interactionscalc(cells, nestedsums, withinfactors, nwithinfactors, nwithinfactorlevels, nnestedfactorlevels, nreplicates, C, withinfactornames) # 9 kb allocated here!
+        factor_subjectswithin_interaction_df = subjectswithin_amongfactor_df .* [f.df for f in withinfactors]
+        factor_subjectswithin_interaction_ss = ?????????
+    end
+
+    if namongfactors + nwithinfactors == 3
+        interaction_subjectswithin_df = subjectswithin_amongfactor.df .* prod(f -> f.df, withinfactors)
+        interaction_subjectswithin_ss = ?????????
+    end
+
+    amongsubjectsdenominator = subjectswithin_amongfactor
+    withinsubjectsdenominators .= pairinteractionsubjectswithinms, threeinteractionsubjectswithinms
+end
+=#
+
+meanfirstdim(observations::AbstractArray{<:AbstractVector}) = map(meanfirstdim, observations)
+meanfirstdim(observations::AbstractArray{<:Number}) = dropdims(mean(observations, dims = 1), dims = 1)
+meanfirstdim(observations::AbstractVector{<:Number}) = mean(observations, dims = 1) |> first
+
+upcat(x::AbstractArray) = x
+upcat(x::AbstractArray{<:AbstractVector}) = reshape(vcat(x...), (size(x[1])..., size(x)...))
+
+function totalcalc(observations)
+    observations = upcat(observations)
+    df = length(observations) - 1
+    ss = var(observations) * df
     AnovaValue(totalname, ss, df)
 end
 
-factorsum(cellsums, i, nfactors) = squaresum(sum(cellsums, dims = (1:nfactors)[Not(i)]))
-
-function factorscalc(cellsums, nfactors, nfactorlevels, N, C, factornames)
-    ss = [factorsum(cellsums, i, nfactors) / (N / nfactorlevels[i]) for i ∈ 1:nfactors] .- C
-    df = nfactorlevels .- 1
-    AnovaFactor.(factornames, ss, df)
-end
-
-function cellscalc(cellsums, nreplicates, ncells, C)
-    ss = squaresum(cellsums) / nreplicates - C
-    df = ncells - 1
+function cellscalc(cellmeans, nreplicates)
+    df = length(cellmeans) - 1
+    ss = var(cellmeans) * nreplicates * df
     AnovaValue(cellsname, ss, df)
 end
 
-function errorcalc(total, amongallnested, cells, otherfactors, nnestedfactors, nreplicates)
-    if nnestedfactors > 0
+function factorscalc(cellmeans, nfactors, nfactorlevels, N, factornames)
+    df = nfactorlevels .- 1
+    ss = [var(mean(cellmeans, dims=(1:nfactors)[Not(i)]), corrected = false) * N for i ∈ 1:nfactors]
+    AnovaFactor.(factornames, ss, df)
+end
+
+function errorcalc(total, amongallnested, cells, otherfactors, nreplicates)
+    if length(amongallnested) > 0
         otherfactor = amongallnested[1]
         name = errorname
     elseif nreplicates > 1
@@ -223,31 +303,31 @@ function errorcalc(total, amongallnested, cells, otherfactors, nnestedfactors, n
     AnovaFactor(name, total - otherfactor)
 end
 
-function amongnestedfactorscalc(cellsums, nfactorlevels, nnestedfactors, nreplicates, C)
-    nestedsums = cellsums
+function amongnestedfactorscalc(nestedmeans, nfactorlevels, nnestedfactors, nreplicates)
     nlowerfactorlevels = 1
     nupperfactorlevels = nfactorlevels
     amongallnested = Vector{AnovaValue}(undef, nnestedfactors)
-    for i ∈ 1:nnestedfactors
+    @views for i ∈ 1:nnestedfactors
         # collapse each nested factor
-        ss = squaresum(nestedsums) / (nreplicates * prod(nlowerfactorlevels)) - C
         df = prod(nupperfactorlevels) - 1
+        ss = var(nestedmeans) * nreplicates * df * prod(nlowerfactorlevels)
         amongallnested[i] = AnovaValue(ss, df)
         nlowerfactorlevels = nfactorlevels[1:i]
         nupperfactorlevels = nfactorlevels[(i+1):end]
-        nestedsums = sumfirstdim(nestedsums)
+        nestedmeans = meanfirstdim(nestedmeans)
     end
-    amongallnested, nestedsums, nupperfactorlevels, nlowerfactorlevels
+    amongallnested, nestedmeans, collect(nupperfactorlevels), collect(nlowerfactorlevels)
 end
 
-function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, C, crossedfactorlabels, npercrossedcell)
+function interactionscalc(cells, crossedcellmeans, crossedfactors, crossedfactorlabels, npercrossedcell)
+    ncrossedfactors = length(crossedfactors)
     if (ncrossedfactors == 2 && npercrossedcell > 1) || ncrossedfactors == 3
         npairs = ncrossedfactors == 2 ? 1 : 3
         ntriples = ncrossedfactors == 3 && npercrossedcell > 1 ? 1 : 0
         interactions = Vector{AnovaFactor}(undef, npairs + ntriples)
-        interactions[1] = pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, C, crossedfactorlabels, 1, 2)
+        interactions[1] = pairwisecalc(crossedcellmeans, crossedfactors, npercrossedcell, crossedfactorlabels, 1, 2)
         if ncrossedfactors == 3
-            interactions[2:3] = [pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, C, crossedfactorlabels, i, 3) for i ∈ 1:2]
+            interactions[2:3] = [pairwisecalc(crossedcellmeans, crossedfactors, npercrossedcell, crossedfactorlabels, i, 3) for i ∈ 1:2]
             if npercrossedcell > 1
                 interactions[4] = threewisecalc(cells, crossedfactors, interactions, crossedfactorlabels)
             end
@@ -258,9 +338,9 @@ function interactionscalc(cells, nestedsums, crossedfactors, ncrossedfactors, nc
     end
 end
 
-function pairwisecalc(nestedsums, crossedfactors, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, C, crossedfactorlabels, i, j)
-    otherfactorindexes = (1:ncrossedfactors)[Not([i, j])]
-    ss = squaresum(sum(nestedsums, dims = otherfactorindexes)) / (prod(ncrossedfactorlevels[otherfactorindexes]) * npercrossedcell) - C - crossedfactors[i].ss - crossedfactors[j].ss
+function pairwisecalc(crossedcellmeans, crossedfactors, npercrossedcell, crossedfactorlabels, i, j)
+    otherfactorindexes = (1:length(crossedfactors))[Not([i, j])]
+    ss = (var(mean(crossedcellmeans, dims = otherfactorindexes), corrected=false) * npercrossedcell * length(crossedcellmeans) - crossedfactors[i].ss - crossedfactors[j].ss)
     df = crossedfactors[i].df * crossedfactors[j].df
     AnovaFactor("$(crossedfactorlabels[j]) × $(crossedfactorlabels[i])", ss, df)
 end
@@ -271,8 +351,9 @@ function threewisecalc(cells, factors, pairwise, crossedfactorlabels)
     AnovaFactor("$(crossedfactorlabels[3]) × $(crossedfactorlabels[2]) × $(crossedfactorlabels[1])", ss, df)
 end
 
-function nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, interactions, nestedfactorlabels)
+function nestedfactorscalc(amongallnested, crossedfactors, interactions, nestedfactorlabels)
     nestedfactors = []
+    nnestedfactors = length(amongallnested)
     if nnestedfactors > 0
         otherfactors = sum([crossedfactors; interactions])
         for i ∈ nnestedfactors:-1:1
@@ -284,17 +365,20 @@ function nestedfactorscalc(amongallnested, nnestedfactors, crossedfactors, inter
     nestedfactors
 end
 
-function getnumerators(crossedfactors, ncrossedfactors, nnestedfactors, nestedfactors, interactions)
+function getnumerators(crossedfactors, nestedfactors, interactions)
     numerators = copy(crossedfactors)
+    ncrossedfactors = length(crossedfactors)
     if ncrossedfactors > 1 && length(interactions) > 0
         push!(numerators, interactions[1])
         ncrossedfactors > 2 && push!(numerators, interactions[2], interactions[3], interactions[4])
     end
-    nnestedfactors > 0 && append!(numerators, nestedfactors)
+    length(nestedfactors) > 0 && append!(numerators, nestedfactors)
     numerators
 end
 
-function getdenominators(interactions, nestedfactors, error, crossedfactortypes, ncrossedfactors, nnestedfactors)
+function getdenominators(interactions, nestedfactors, error, crossedfactortypes)
+    nnestedfactors = length(nestedfactors)
+    ncrossedfactors = length(crossedfactortypes)
     nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
 
     if nnestedfactors > 0
@@ -334,9 +418,7 @@ function getdenominators(interactions, nestedfactors, error, crossedfactortypes,
 
         else # has both random and fixed factors
             if ncrossedfactors == 2
-                crosseddenominators = map(crossedfactortypes) do 
-                    f -> f == fixed ? interactions[1] : crossedbasedenominator
-                end
+                crosseddenominators = map(f -> f == fixed ? interactions[1] : crossedbasedenominator, crossedfactortypes)
 
             else # 3 crossed factors
                 randomcount = count(f -> f == random, crossedfactortypes)

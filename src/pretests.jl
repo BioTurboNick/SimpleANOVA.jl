@@ -74,8 +74,7 @@ function levene(observations::AbstractVector{T}, factorassignments::AbstractVect
 end
 
 function levenekernel(observations, nreplicates, ncells)
-    cellsums = sumfirstdim(observations)
-    cellmeans = cellsums ./ nreplicates
+    cellmeans = meanfirstdim(observations)
     if eltype(observations) <: Number
         absdevs = abs.(observations .- cellmeans')
     else
