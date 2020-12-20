@@ -520,6 +520,64 @@
                 end
             end
         end
+
+        @testset "Repeated measures ANOVA with no among-group factors" begin
+            observations1 = Array{Vector{Float64}, 2}(undef, 2, 2)
+            observations1[1,1] = [8]
+            observations1[2,1] = [7]
+            observations1[3,1] = [1]
+            observations1[4,1] = [6]
+            observations1[1,2] = [9]
+            observations1[2,2] = [5]
+            observations1[3,2] = [2]
+            observations1[4,2] = [5]
+            observations1[1,3] = [6]
+            observations1[2,3] = [2]
+            observations1[3,3] = [3]
+            observations1[4,3] = [8]
+            observations1[1,4] = [5]
+            observations1[2,4] = [3]
+            observations1[3,4] = [1]
+            observations1[4,4] = [9]
+            observations1[1,5] = [8]
+            observations1[2,5] = [4]
+            observations1[3,5] = [5]
+            observations1[4,5] = [8]
+            observations1[1,6] = [7]
+            observations1[2,6] = [5]
+            observations1[3,6] = [6]
+            observations1[4,6] = [7]
+            observations1[1,7] = [10]
+            observations1[2,7] = [2]
+            observations1[3,7] = [7]
+            observations1[4,7] = [2]
+            observations1[1,8] = [12]
+            observations1[2,8] = [6]
+            observations1[3,8] = [8]
+            observations1[4,8] = [1]
+
+            observations2 = [8  9  6  5  8  7 10 12
+                             7  5  2  3  4  5  2  6
+                             1  2  3  1  5  6  7  8 
+                             6  5  8  9  8  7  2  1]
+            
+            # NOT CORRECT VALUES YET
+            expected = [AnovaValue( "Total", 1827.6975, 19),
+                        AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175,  0.025621074),
+                        AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7, 0.73663535),
+                        AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001,  -0.0097253817),
+                        AnovaFactor("Error",  366.372,  16,   22.89825)]
+ 
+            @testset "Replicate Vectors" begin
+                results = anova(observations1, [within, subject])
+                @test all(expected .≈ results.effects)
+            end
+
+            @testset "Replicate First Dimension" begin
+                results = anova(observations2, [within, subject])
+                @test all(expected .≈ results.effects)
+            end
+        end
     end
 
     @testset "Vectors" begin
