@@ -90,7 +90,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
     nestedfactornames = factornames[factortypes .== nested]
 
     if isrepeatedmeasures
-        anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, true, factornames[1])
+        anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, true)
     else
         anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, false)
     end
@@ -147,28 +147,27 @@ function validate(factortypes::Vector{FactorType}, factornames::Vector{<:Abstrac
     end
 end
 
-function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, isrepeatedmeasures, withinfactorname)
+function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, isrepeatedmeasures)
     N = ncells * nreplicates
     nfactors = nnestedfactors + ncrossedfactors
 
     # collapse replicate dimension
     cellmeans = eltype(observations) <: Number && nreplicates == 1 ? Float64.(observations) : meanfirstdim(observations)
     total = totalcalc(observations)
+    cells = cellscalc(cellmeans, nreplicates)
 
     if isrepeatedmeasures
         withinsubjects, nestedmeans = withinsubjectscalc(cellmeans, nfactorlevels, "Subjects")
-        within = withincalc(cellmeans, nfactorlevels, withinfactorname)
+        withinfactor = withincalc(cellmeans, nfactorlevels, factornames[2])
         nreplicates = nfactorlevels[1]
         nfactorlevels = nfactorlevels[2:end]
     else
-        subjectswithin = ()
-        within = ()
+        withinsubjects = ()
+        withinfactor = ()
         nestedmeans = cellmeans
-        remainder = ()
     end
 
     amongallnested, crossedcellmeans, ncrossedfactorlevels, nnestedfactorlevels = amongnestedfactorscalc(nestedmeans, nfactorlevels, nnestedfactors, nreplicates)
-    cells = cellscalc(cellmeans, nreplicates)
 
     npercrossedcell = nreplicates * prod(nnestedfactorlevels)
     crossedfactors = factorscalc(crossedcellmeans, ncrossedfactors, ncrossedfactorlevels, N, crossedfactornames)
@@ -184,7 +183,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     
 
     error = if isrepeatedmeasures
-        AnovaFactor(remaindername, subjectswithin - within)
+        AnovaFactor(remaindername, withinsubjects - withinfactor)
     elseif length(amongallnested) > 0
         AnovaFactor(errorname, total - amongallnested[1])
     elseif nreplicates > 1
@@ -193,10 +192,8 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
         AnovaFactor(remaindername, total - sum([crossedfactors; interactions[1:end-1]]))
     end
 
-     isrepeatedmeasures
-
-    numerators = getnumerators(crossedfactors, nestedfactors, interactions)
-    denominators = getdenominators(interactions, nestedfactors, error, crossedfactortypes)
+    numerators = getnumerators(withinfactor, crossedfactors, nestedfactors, interactions)
+    denominators = getdenominators(isrepeatedmeasures, interactions, nestedfactors, error, crossedfactortypes)
 
     # drop least significant test if nreplicates == 1; lowest nesting level. Lowest interaction previously dropped if no nested factors. Should look to do same for nesting.
     if nnestedfactors > 0 && nreplicates == 1
@@ -208,7 +205,7 @@ function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossed
     results = ftest.(numerators, denominators)
 
     results = effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
-    data = AnovaData([total; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
+    data = AnovaData([total; withinsubjects; results], total, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactors, denominators[1:ncrossedfactors], crossedcellmeans)
     nnestedfactors > 0 && nreplicates == 1 && push!(data.effects, droppedfactor)
     error.df > 0 && push!(data.effects, error)
 
@@ -348,7 +345,7 @@ end
 function withinsubjectscalc(cellmeans, nfactorlevels, withinfactorname)
     df = nfactorlevels[1] - 1
     ss = sum(var(cellmeans, dims=1)) * df
-    AnovaFactor(withinfactorname, ss, df * nfactorlevels[2]), meanfirstdim(cellmeans)
+    AnovaValue(withinfactorname, ss, df * nfactorlevels[2]), meanfirstdim(cellmeans)
 end
 
 function withincalc(cellmeans, nfactorlevels, withinfactorname)
@@ -403,8 +400,12 @@ function nestedfactorscalc(amongallnested, crossedfactors, interactions, nestedf
     nestedfactors
 end
 
-function getnumerators(crossedfactors, nestedfactors, interactions)
-    numerators = copy(crossedfactors)
+function getnumerators(withinfactor, crossedfactors, nestedfactors, interactions)
+    numerators = AnovaEffect[]
+    if !isnothing(withinfactor)
+        push!(numerators, withinfactor)
+    end
+    append!(numerators, crossedfactors)
     ncrossedfactors = length(crossedfactors)
     if ncrossedfactors > 1 && length(interactions) > 0
         push!(numerators, interactions[1])
@@ -414,10 +415,16 @@ function getnumerators(crossedfactors, nestedfactors, interactions)
     numerators
 end
 
-function getdenominators(interactions, nestedfactors, error, crossedfactortypes)
+function getdenominators(isrepeatedmeasures, interactions, nestedfactors, error, crossedfactortypes)
     nnestedfactors = length(nestedfactors)
     ncrossedfactors = length(crossedfactortypes)
     nesteddenominators = Vector{AnovaFactor}(undef, nnestedfactors)
+
+    if isrepeatedmeasures
+        subjectsdenominators = [error]
+    else
+        subjectsdenominators = []
+    end
 
     if nnestedfactors > 0
         crossedbasedenominator = nestedfactors[1]
@@ -490,6 +497,7 @@ function getdenominators(interactions, nestedfactors, error, crossedfactortypes)
         denominators = [crosseddenominators; pairinteractiondenominators; crossedbasedenominator]
     end
     append!(denominators, nesteddenominators)
+    append!(denominators, subjectsdenominators)
     denominators
 end
 
