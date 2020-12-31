@@ -20,6 +20,7 @@ end
 
 AnovaFactor(name, ss, df) = AnovaFactor(name, ss, df, ss / df)
 AnovaFactor(name, av::AnovaEffect) = AnovaFactor(name, av.ss, av.df)
+AnovaFactor(av::AnovaEffect) = AnovaFactor(av.name, av.ss, av.df)
 
 import Base.isapprox
 isapprox(x::AnovaFactor, y::AnovaFactor) =

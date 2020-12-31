@@ -72,7 +72,7 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
 
     # automatically assigns alphabetical names if not provided.
     if isempty(factornames)
-        factornames = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"][1:nfactors]
+        factornames = string.('A':'Z')[1:nfactors]
         reverse!(factornames)
     end
 

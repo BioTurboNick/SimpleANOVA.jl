@@ -5,10 +5,10 @@
 
 `random` - A crossed random-effects factor
 
-`nested` `subject` `block` - A random factor fully nested within another factor
+`nested` - A random factor fully nested within another factor
 
-`within` - A fixed-effects factor applied across a nested factor
+`subject` `block` - A random factor subjected to multiple levels of another factor
 """
-@enum FactorType fixed random nested subject block within
+@enum FactorType fixed random nested subject block
 
 Broadcast.broadcastable(a::FactorType) = (a,) # workaround for current behavior

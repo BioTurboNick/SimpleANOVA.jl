@@ -15,7 +15,7 @@ mutable struct AnovaData{N}
 end
 
 import Base.show
-function show(io::IO, ad::AnovaData)
+function show(io::IO, ad::AnovaData2)
     colnames = ["Effect", "SS", "DF", "MS", "F", "p", "ω²"]
     rownames = [e.name for e ∈ ad.effects]
     nrows = length(ad.effects)
