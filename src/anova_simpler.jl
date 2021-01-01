@@ -187,29 +187,37 @@ function anova1(observations, factornames, factortypes, isrepeatedmeasures)
     errorvar = AnovaFactor(errorname, totalvar - cellsvar)
 
     if isrepeatedmeasures
-        # for two within NEED TO GENERALIZE
-        withinmeans = dropdims(mean(cellmeans, dims=3), dims=3)
-        cellmeans = mean(cellmeans, dims=(1,2))
-        subjectsvar = AnovaValue("Subjects", sum((cellmeans .- mean(cellmeans)) .^ 2) * prod(nfactorlevels[1:2]), 3)
+        subjectindex = findfirst(x -> x == subject, factortypes)
+        nfactors = ndims(observations)
+        otherfactors = (1:nfactors)[Not(subjectindex)]
+        notherfactorlevels = collect(nfactorlevels)[otherfactors]
+        subjectsvar = AnovaValue("Subjects", sum((mean(observations, dims=otherfactors) .- mean(observations)) .^ 2) * prod(notherfactorlevels), nfactorlevels[subjectindex] - 1)
         withinsubjectsvar = totalvar - subjectsvar
-        withinfactorvars, withinfactorerrorvars = anovakernel(withinmeans, nreplicates * nhigherdims, withinsubjectsvar, errorvar, factornames, factortypes)
+        cellmeans = dropdims(mean(observations, dims = subjectindex), dims = subjectindex)
+        nreplicates *= nfactorlevels[subjectindex]
 
+        factorvars, factorerrorvars = anovakernel(cellmeans, nreplicates, withinsubjectsvar, errorvar, factornames, factortypes)
+
+        # subject interactions UNGENERALIZED
+        sa = AnovaFactor("S/A", sum((mean(observations, dims=2) .- mean(observations)) .^ 2) * nfactorlevels[3] - factorvars[1].ss - subjectsvar.ss, subjectsvar.df * factorvars[1].df)
+        sb = AnovaFactor("S/B", sum((mean(observations, dims=3) .- mean(observations)) .^ 2) * nfactorlevels[2] - factorvars[2].ss - subjectsvar.ss, subjectsvar.df * factorvars[2].df)
+        sab = withinsubjectsvar - sum(factorvars) - sa - sb
+
+        # can I have anovakernel do the subject interactions?
+
+        factorerrorvar = subjectsvar - sum(factorvars)
+        replace!(factorerrorvars, errorvar => factorerrorvar)
+        
+        
+
+        remaindervar = withinsubjectsvar - sum(factorvars)
+        replace!(withinfactorerrorvars, errorvar => remaindervar)
     else
         amongallnestedvars, cellmeans, nnestedfactorlevels, factornames, factortypes = amongnestedfactorscalc!(cellmeans, factornames, factortypes)
         nreplicates *= prod(nnestedfactorlevels)
-    end
 
-    factorvars, factorerrorvars = anovakernel(cellmeans, nreplicates, cellsvar, errorvar, factornames, factortypes)
+        factorvars, factorerrorvars = anovakernel(cellmeans, nreplicates, cellsvar, errorvar, factornames, factortypes)
 
-    if isrepeatedmeasures
-        factorerrorvar = subjectsvar - sum(factorvars)
-        replace!(factorerrorvars, errorvar => factorerrorvar)
-
-        # need to handle interactions between among/within factors, that also reduce the remainder
-
-        remaindervar = withinsubjectsvar - sum(factorvars) - sum(withinfactorvars)
-        replace!(withinfactorerrorvars, errorvar => remaindervar)
-    else
         nestedvars = nestedfactorscalc(amongallnestedvars, sum(factorvars))
         replace!(factorerrorvars, errorvar => nestedvars[1])
     end
