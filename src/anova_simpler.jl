@@ -249,6 +249,41 @@ Subjects within A = Subjects - Factor A
 
 
 
+
+#=
+
+
+Generally speaking, a 2-way interaction is calculated as:
+
+ss = sum((mean(observations, dims=otherfactors) .- mean(observations)) .^ 2)) * prod(nfactorlevels[otherfactors]) * nreplicates - factorAss - factorBss
+
+and has df = factorAdf * factorBdf
+
+a 3-way interaction is calculated as:
+
+ss = sum((mean(observations, dims=otherfactors) .- mean(observations)) .^ 2) * prod(nfactorlevels[otherfactors]) * nreplicates - sum(factorsABC) - sum(pairwiseinteractionsABC)
+
+and has df = factorAdf * factorBdf * factorCdf
+
+=#
+
+
+
+makefactorname(factorname::AbstractString) = factorname
+
+function makefactorname(factornames::AbstractVector{<:AbstractString})
+    length(factornames) > 0 || return ""
+    
+    factorname = factornames[1]
+    
+    for i ∈ 2:length(factornames)
+        factorname *= " × " * factornames[i]
+    end
+
+    return factorname
+end
+
+
 # nested levels
 function amongnestedfactorscalc(cellmeans, factornames, factortypes)
     nnestedfactors = count(x -> x == nested, factortypes)
@@ -280,6 +315,33 @@ function nestedfactorscalc(amongallnestedvars, otherfactorvars)
     return nestedfactors
 end
 
+function anovafactors(cellmeans, nreplicates, factornames)
+    # calculate all simple factors and all interactions
+
+    N = length(cellmeans) * nreplicates
+
+    factors = 1:ndims(cellmeans)
+
+    allfactors = []
+    allfactorvars = AnovaFactor[]
+    for i ∈ factors
+        ifactors = collect(combinations(factors, i))
+        iotherfactors = [factors[Not(i...)] for i ∈ ifactors]
+        iupperfactorvars = [allfactorvars[findall(x -> x ⊆ i, allfactors)] for i ∈ ifactors]
+
+        ifactornames = [makefactorname(reverse(factornames[i])) for i ∈ ifactors]
+        ifactorss = [var(mean(cellmeans, dims = iotherfactors[i]), corrected = false) * N - sum(iupperfactorvars[i]).ss for i ∈ eachindex(iotherfactors)]
+        ifactordf = isempty(iupperfactorvars[1]) ? [size(cellmeans, i) for i ∈ factors] :
+                                                   [prod(f.df for f ∈ iupperfactorvars[i]) for i ∈ eachindex(iotherfactors)]
+        ifactorvars = AnovaFactor.(ifactornames, ifactorss, ifactordf)
+        
+        append!(allfactors, reverse!(ifactors))
+        append!(allfactorvars, reverse!(ifactorvars))
+    end
+
+    return allfactorvars
+end
+
 # one-way
 function anovakernel(cellmeans::AbstractVector, nreplicates, _1, errorvar, factornames, _2)
     factordf = length(cellmeans) - 1
@@ -291,15 +353,7 @@ end
 function anovakernel(cellmeans::AbstractMatrix, nreplicates, _, errorvar, factornames, factortypes)
     N = length(cellmeans) * nreplicates
 
-    factor1df = size(cellmeans, 1) - 1
-    factor1var = AnovaFactor(factornames[1], var(mean(cellmeans, dims=2), corrected = false) * N, factor1df)
-    
-    factor2df = size(cellmeans, 2) - 1
-    factor2var = AnovaFactor(factornames[2], var(mean(cellmeans, dims=1), corrected = false) * N, factor2df)
-
-    interaction12df = factor1df * factor2df
-    interaction12var = AnovaFactor("$(factornames[2]) × $(factornames[1])", var(cellmeans, corrected=false) * N - factor1var.ss - factor2var.ss, interaction12df)
-    interaction12error = errorvar
+    factor1var, factor2var, 
 
     if factortypes[1] == factortypes[2]
         if factortypes[1] == fixed

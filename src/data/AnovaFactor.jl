@@ -28,3 +28,6 @@ isapprox(x::AnovaFactor, y::AnovaFactor) =
     x.ss ≈ y.ss &&
     x.df == y.df &&
     (isnan(x.ms) && isnan(y.ms) || x.ms ≈ y.ms)
+
+import Base.zero
+zero(::AnovaFactor) = AnovaFactor("", 0, 1, 0)
