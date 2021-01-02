@@ -30,4 +30,4 @@ isapprox(x::AnovaFactor, y::AnovaFactor) =
     (isnan(x.ms) && isnan(y.ms) || x.ms ≈ y.ms)
 
 import Base.zero
-zero(::AnovaFactor) = AnovaFactor("", 0, 1, 0)
+zero(::Type{AnovaFactor}) = AnovaFactor("", 0, 1, 0)
