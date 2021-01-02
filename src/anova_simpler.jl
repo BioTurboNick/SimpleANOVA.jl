@@ -54,7 +54,7 @@ anova(observations, [fixed, block])        # N-way repeated measures ANOVA with 
 - p-value: The probability that, if all measurements had been drawn from the same population, you would obtain data at least as extreme as contained in your observations.
 - effect size: The standardized difference in the measurement caused by the factor.
 """
-function anova1(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true) where {T <: Union{Number, AbstractVector{<:Number}}}
+function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[], hasreplicates = true) where {T <: Union{Number, AbstractVector{<:Number}}}
     length(observations) > 0 || return
 
     isrepeatedmeasures = subject ∈ factortypes
@@ -106,7 +106,7 @@ end
 # possible bug: function anova(data::AnovaData, crossedfactors::Vector{Int}, ) with normal functions ==> hang when called?
 =#
 
-function anova1(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
+function anova(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[]) where {T <: Number}
     length(observations) > 0 || return
     nfactors = length(factorassignments)
     N = length(observations)
@@ -148,13 +148,6 @@ function validate(factortypes::Vector{FactorType}, factornames::Vector{<:Abstrac
     end
 end
 
-function anovakernel(observations, nreplicates, ncells, nnestedfactors, ncrossedfactors, nfactorlevels, crossedfactortypes, crossedfactornames, nestedfactornames, isrepeatedmeasures)
-    N = ncells * nreplicates
-    nfactors = nnestedfactors + ncrossedfactors
-
-    
-end
-
 anovavalue(name, variance, df) = AnovaValue(name, variance * df, df)
 anovafactor(name, variance, df) = AnovaFactor(anovavalue(name, variance, df))
 meanfirstdim(observations::AbstractArray{<:Number}) = dropdims(mean(observations, dims = 1), dims = 1)
@@ -172,8 +165,17 @@ mutable struct AnovaData2
     effects::Vector{AnovaEffect}
 end
 
-function anova1(observations, factornames, factortypes, isrepeatedmeasures)
-    observations = upcat(observations)
+#= TODO:
+
+- Make replicates work in repeated measures
+- Consider if nesting can be simplified
+- Consider if nesting can be integrated with subjects
+- Validation for limitations
+- Reimplement effect sizes
+
+=#
+function anovakernel(observations, factornames, factortypes, isrepeatedmeasures)
+    observations = upcat(observations) # still have to deal with replicates vs. not
 
     nreplicates = size(observations, 1)
 
@@ -187,36 +189,14 @@ function anova1(observations, factornames, factortypes, isrepeatedmeasures)
     errorvar = AnovaFactor(errorname, totalvar - cellsvar)
 
     if isrepeatedmeasures
-        subjectindex = findfirst(x -> x == subject, factortypes)
-        nfactors = ndims(observations)
-        otherfactors = (1:nfactors)[Not(subjectindex)]
-        notherfactorlevels = collect(nfactorlevels)[otherfactors]
-        subjectsvar = AnovaValue("Subjects", sum((mean(observations, dims=otherfactors) .- mean(observations)) .^ 2) * prod(notherfactorlevels), nfactorlevels[subjectindex] - 1)
-        withinsubjectsvar = totalvar - subjectsvar
-        cellmeans = dropdims(mean(observations, dims = subjectindex), dims = subjectindex)
-        nreplicates *= nfactorlevels[subjectindex]
-
-        factorvars, factorerrorvars = anovakernel(cellmeans, nreplicates, withinsubjectsvar, errorvar, factornames, factortypes)
-
-        # subject interactions UNGENERALIZED
-        sa = AnovaFactor("S/A", sum((mean(observations, dims=2) .- mean(observations)) .^ 2) * nfactorlevels[3] - factorvars[1].ss - subjectsvar.ss, subjectsvar.df * factorvars[1].df)
-        sb = AnovaFactor("S/B", sum((mean(observations, dims=3) .- mean(observations)) .^ 2) * nfactorlevels[2] - factorvars[2].ss - subjectsvar.ss, subjectsvar.df * factorvars[2].df)
-        sab = withinsubjectsvar - sum(factorvars) - sa - sb
-
-        # can I have anovakernel do the subject interactions?
-
-        factorerrorvar = subjectsvar - sum(factorvars)
-        replace!(factorerrorvars, errorvar => factorerrorvar)
-        
-        
-
-        remaindervar = withinsubjectsvar - sum(factorvars)
-        replace!(withinfactorerrorvars, errorvar => remaindervar)
+        factorvars = anovafactors(cellmeans, nreplicates, factornames)
+        factorerrorvars = anovasubjecterrors(factorvars[(length(factortypes) + 1):end], factortypes)
     else
         amongallnestedvars, cellmeans, nnestedfactorlevels, factornames, factortypes = amongnestedfactorscalc!(cellmeans, factornames, factortypes)
         nreplicates *= prod(nnestedfactorlevels)
 
-        factorvars, factorerrorvars = anovakernel(cellmeans, nreplicates, cellsvar, errorvar, factornames, factortypes)
+        factorvars = anovafactors(cellmeans, nreplicates, factornames)
+        factorerrorvars = anovaerrors(factorvars[(length(factortypes) + 1):end], factortypes, errorvar)
 
         nestedvars = nestedfactorscalc(amongallnestedvars, sum(factorvars))
         replace!(factorerrorvars, errorvar => nestedvars[1])
@@ -224,50 +204,13 @@ function anova1(observations, factornames, factortypes, isrepeatedmeasures)
 
     factorresults = ftest.(factorvars, factorerrorvars)
 
-    if isrepeatedmeasures
-        withinfactorresults = ftest.(withinfactorvars, withinfactorerrorvars)
-        append!(factorresults, withinfactorresults)
-    else
+    if !isrepeatedmeasures
         nestedresults = ftest.(nestedvars, [nestedvars[2:end]; errorvar])
         append!(factorresults, nestedresults)
     end
 
     return AnovaData2([totalvar; factorresults; errorvar])
 end
-
-#=
-For one-way top level: factorA error = A within Subjects
-For two-way top level: factorA/B error = AxB within Subjects
-
-For within factors and interaction with top level: interaction between the factor and A within Subjects
-For interaction among within factors: interaction between the lowest factor and A within Subjects (doesn't seem right?)
-For three-way interaction: interaction bteween B, C, and A within Subjcects
-
-
-Subjects within A = Subjects - Factor A
-=#
-
-
-
-
-#=
-
-
-Generally speaking, a 2-way interaction is calculated as:
-
-ss = sum((mean(observations, dims=otherfactors) .- mean(observations)) .^ 2)) * prod(nfactorlevels[otherfactors]) * nreplicates - factorAss - factorBss
-
-and has df = factorAdf * factorBdf
-
-a 3-way interaction is calculated as:
-
-ss = sum((mean(observations, dims=otherfactors) .- mean(observations)) .^ 2) * prod(nfactorlevels[otherfactors]) * nreplicates - sum(factorsABC) - sum(pairwiseinteractionsABC)
-
-and has df = factorAdf * factorBdf * factorCdf
-
-=#
-
-
 
 makefactorname(factorname::AbstractString) = factorname
 
@@ -325,138 +268,166 @@ function anovafactors(cellmeans, nreplicates, factornames)
     allfactors = []
     allfactorvars = AnovaFactor[]
     for i ∈ factors
-        ifactors = collect(combinations(factors, i))
+        ifactors = collect(combinations(reverse(factors), i))
         iotherfactors = [factors[Not(i...)] for i ∈ ifactors]
         iupperfactorvars = [allfactorvars[findall(x -> x ⊆ i, allfactors)] for i ∈ ifactors]
 
-        ifactornames = [makefactorname(reverse(factornames[i])) for i ∈ ifactors]
+        ifactornames = [makefactorname(factornames[i]) for i ∈ ifactors]
         ifactorss = [var(mean(cellmeans, dims = iotherfactors[i]), corrected = false) * N - sum(iupperfactorvars[i]).ss for i ∈ eachindex(iotherfactors)]
-        ifactordf = isempty(iupperfactorvars[1]) ? [size(cellmeans, i) for i ∈ factors] :
-                                                   [prod(f.df for f ∈ iupperfactorvars[i]) for i ∈ eachindex(iotherfactors)]
+        ifactordf = isempty(iupperfactorvars[1]) ? [size(cellmeans, i) - 1 for i ∈ factors] :
+                                                   [prod(f.df for f ∈ iupperfactorvars[j][1:i]) for j ∈ eachindex(iotherfactors)]
         ifactorvars = AnovaFactor.(ifactornames, ifactorss, ifactordf)
         
-        append!(allfactors, reverse!(ifactors))
-        append!(allfactorvars, reverse!(ifactorvars))
+        append!(allfactors, ifactors)
+        append!(allfactorvars, ifactorvars)
     end
 
     return allfactorvars
 end
 
-# one-way
-function anovakernel(cellmeans::AbstractVector, nreplicates, _1, errorvar, factornames, _2)
-    factordf = length(cellmeans) - 1
-    factorvar = anovafactor(factornames[1], var(cellmeans) * nreplicates, factordf)
-    return [factorvar], [errorvar]
-end
+function anovaerrors(interactionvars, factortypes, errorvar)
+    # assign proper error terms for each factor
 
-# two-way
-function anovakernel(cellmeans::AbstractMatrix, nreplicates, _, errorvar, factornames, factortypes)
-    N = length(cellmeans) * nreplicates
+    length(factortypes) == 1 && return [errorvar]
+    all(x -> x == fixed, factortypes) && return repeat([errorvar], length(factortypes) + length(interactionvars))
 
-    factor1var, factor2var, 
+    interaction12var = interactionvars[1]
 
-    if factortypes[1] == factortypes[2]
-        if factortypes[1] == fixed
-            factor1error = errorvar
-            factor2error = errorvar
-        else
+    factortypes = reverse(factortypes)
+
+    if length(factorvars) == 2
+        if factortypes[1] == factortypes[2]
             factor1error = interaction12var
             factor2error = interaction12var
-        end
-    else
-        if factortypes[1] == fixed
-            factor1error = interaction12var
-            factor2error = errorvar
         else
-            factor1error = errorvar
-            factor2error = interaction12var
+            if factortypes[1] == fixed
+                factor1error = interaction12var
+                factor2error = errorvar
+            else
+                factor1error = errorvar
+                factor2error = interaction12var
+            end
         end
-    end
+        factorerrorvars = [factor1error; factor2error; errorvar]
 
-    return [factor2var; factor1var; interaction12var],
-           [factor2error; factor1error; interaction12error]
-end
+    elseif length(factorvars) == 3
+        interaction12var = interactionvars[1]
+        interaction13var = interactionvars[2]
+        interaction23var = interactionvars[3]
+        interaction123var = interactionvars[4]
 
-# three-way
-function anovakernel(cellmeans::AbstractArray{T, 3}, nreplicates, cellsvar, errorvar, factornames, factortypes) where T
-    N = length(cellmeans) * nreplicates
-
-    factor1df = size(cellmeans, 1) - 1
-    factor1var = AnovaFactor(factornames[1], var(mean(cellmeans, dims=(2,3)), corrected = false) * N, factor1df)
-    
-    factor2df = size(cellmeans, 2) - 1
-    factor2var = AnovaFactor(factornames[2], var(mean(cellmeans, dims=(1,3)), corrected = false) * N, factor2df)
-
-    factor3df = size(cellmeans, 3) - 1
-    factor3var = AnovaFactor(factornames[3], var(mean(cellmeans, dims=(1,2)), corrected = false) * N, factor3df)
-
-    interaction12df = factor1df * factor2df
-    interaction12var = AnovaFactor("$(factornames[2]) × $(factornames[1])", var(mean(cellmeans, dims = 3), corrected = false) * N - factor1var.ss - factor2var.ss, interaction12df)
-
-    interaction13df = factor1df * factor3df
-    interaction13var = AnovaFactor("$(factornames[3]) × $(factornames[1])", var(mean(cellmeans, dims = 2), corrected = false) * N - factor1var.ss - factor3var.ss, interaction13df)
-
-    interaction23df = factor2df * factor3df
-    interaction23var = AnovaFactor("$(factornames[3]) × $(factornames[2])", var(mean(cellmeans, dims = 1), corrected = false) * N - factor2var.ss - factor3var.ss, interaction23df)
-
-    interaction123df = factor1df * factor2df * factor3df
-    interaction123var = AnovaFactor("$(factornames[3]) × $(factornames[2]) × $(factornames[1])", cellsvar.ss - factor1var.ss - factor2var.ss - factor3var.ss - interaction12var.ss - interaction13var.ss - interaction23var.ss, interaction123df)
-
-    if factortypes[1] == factortypes[2] == factortypes[3]
-        if factortypes[1] == fixed
-            factor1error = factor2error = factor3error = errorvar
-            interaction12error = interaction13error = interaction23error = errorvar
-        else
+        if factortypes[1] == factortypes[2] == factortypes[3]
             factor1error = threeway_random_error(interaction12var, interaction13var, interaction123var)
             factor2error = threeway_random_error(interaction12var, interaction23var, interaction123var)
             factor3error = threeway_random_error(interaction13var, interaction23var, interaction123var)
             interaction12error = interaction13error = interaction23error = interaction123var
-        end
-    elseif factortypes[1] == factortypes[2]
-        if factortypes[1] == fixed
-            factor1error = interaction13var
-            factor2error = interaction23var
-            factor3error = errorvar
-            interaction12error = interaction123var
-            interaction13error = interaction23error = errorvar
+        elseif factortypes[1] == factortypes[2]
+            if factortypes[1] == fixed
+                factor1error = interaction13var
+                factor2error = interaction23var
+                factor3error = errorvar
+                interaction12error = interaction123var
+                interaction13error = interaction23error = errorvar
+            else
+                factor1error = factor2error = interaction12var
+                factor3error = threeway_random_error(interaction13var, interaction23var, interaction123var)
+                interaction12error = errorvar
+                interaction13error = interaction23error = interaction123var
+            end
+        elseif factortypes[1] == factortypes[3]
+            if factortypes[1] == fixed
+                factor1error = interaction12var
+                factor2error = errorvar
+                factor3error = interaction23var
+                interaction12error = interaction23error = errorvar
+                interaction13error = interaction123var
+            else
+                factor1error = factor3error = interaction13var
+                factor2error = threeway_random_error(interaction12var, interaction23var, interaction123var)
+                interaction12error = interaction23error = interaction123var
+                interaction13error = errorvar
+            end
         else
-            factor1error = factor2error = interaction12var
-            factor3error = threeway_random_error(interaction13var, interaction23var, interaction123var)
-            interaction12error = errorvar
-            interaction13error = interaction23error = interaction123var
+            if factortypes[2] == fixed
+                factor1error = errorvar
+                factor2error = interaction12var
+                factor3error = interaction13var
+                interaction12error = interaction13error = errorvar
+                interaction23error = interaction123var
+            else
+                factor1error = threeway_random_error(interaction12var, interaction13var, interaction123var)
+                factor2error = factor3error = interaction23var
+                interaction12error = interaction13error = interaction123var
+                interaction23error = errorvar
+            end
         end
-    elseif factortypes[1] == factortypes[3]
-        if factortypes[1] == fixed
-            factor1error = interaction12var
-            factor2error = errorvar
-            factor3error = interaction23var
-            interaction12error = interaction23error = errorvar
-            interaction13error = interaction123var
-        else
-            factor1error = factor3error = interaction13var
-            factor2error = threeway_random_error(interaction12var, interaction23var, interaction123var)
-            interaction12error = interaction23error = interaction123var
-            interaction13error = errorvar
-        end
+        factorerrorvars = [factor1error; factor2error; factor3error; interaction12error; interaction13error; interaction23error; errorvar]
+
     else
-        if factortypes[2] == fixed
-            factor1error = errorvar
-            factor2error = interaction12var
-            factor3error = interaction13var
-            interaction12error = interaction13error = errorvar
-            interaction23error = interaction123var
-        else
-            factor1error = threeway_random_error(interaction12var, interaction13var, interaction123var)
-            factor2error = factor3error = interaction23var
-            interaction12error = interaction13error = interaction123var
-            interaction23error = errorvar
-        end
+        error("More than 3 factors with any random are not supported.")
     end
 
-    interaction123error = errorvar
+    return factorerrorvars
+end
 
-    return [factor3var; factor2var; factor1var; interaction23var; interaction13var; interaction12var; interaction123var],
-           [factor3error; factor2error; factor1error; interaction23error; interaction13error; interaction12error; interaction123error]
+function anovasubjecterrors(interactionvars, factortypes)
+    # assuming subject factor is after among factors and before within factors
+    # doesn't return one for subjects factor or for subject interactions
+    factortypes = reverse(factortypes)
+    subjectindex = findfirst(x -> x == subject, factortypes)
+    
+    if length(factortypes) == 2
+        # one within-subject factor
+        interaction1s = interactionvars[1]
+        factorerrorvars = [interaction1s; interaction1s]
+
+    elseif length(factortypes) == 3
+        if subjectindex == 2
+            # one among factor and one within-subject factor
+            interaction1s = interactionvars[1]
+            interaction12s = interactionvars[4]
+            factorerrorvars = [interaction1s; interaction12s; interaction12s]
+
+        else
+            # two within-subject factors
+            interaction1s = interactionvars[1]
+            interaction2s = interactionvars[2]
+            interaction12s = interactionvars[4]
+            factorerrorvars = [interaction1s; interaction2s; interaction12s]
+
+        end
+                
+    elseif length(factortypes) == 4
+        if subjectindex == 3
+            # two among factors and one within-subject factor
+            interaction12s = interactionvars[7]
+            interaction123s = interactionvars[11]
+            factorerrorvars = [interaction12s; interaction12s; interaction12s; interaction123s; interaction123s; interaction123s; interaction123s]
+
+        elseif subjectindex == 2
+            # one among factor and two within-subject factors
+            interaction1s = interactionvars[1]
+            interaction12s = interactionvars[7]
+            interaction13s = interactionvars[8]
+            interaction123s = interactionvars[11]
+            factorerrorvars = [interaction1s; interaction12s; interaction13s; interaction12s; interaction13s; interaction123s; interaction123s]
+        else
+            # if three within-subject factors
+            interaction1s = interactionvars[1]
+            interaction2s = interactionvars[2]
+            interaction3s = interactionvars[3]
+            interaction12s = interactionvars[7]
+            interaction13s = interactionvars[8]
+            interaction23s = interactionvars[9]
+            interaction123s = interactionvars[11]
+            factorerrorvars = [interaction1s; interaction2s; interaction3s; interaction12s; interaction13s; interaction123s; interaction123s]
+
+        end
+    else
+        error("More than 3 non-subject factors are not supported.")
+    end
+
+    return factorerrorvars
 end
 
 function threeway_random_error(interaction_ab, interaction_bc, interaction_abc)
