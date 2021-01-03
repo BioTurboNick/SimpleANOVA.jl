@@ -10,14 +10,21 @@ const remaindername = "Remainder"
 
 Performs an Analysis of Variance (ANOVA) calculation.
 
+Operates on fixed or random factors, subject/block factors, and nested factors, with or without replicates, on balanced data.
+
+Limitations:
+- If any factors are `random` type, limited to 3-way
+- Repeated measures ANOVA (with subject/block factor) limited to 3 `fixed` factors which may be partitioned as within or among subjects
+
 Operates on up to 3 crossed factors (fixed or random) and arbitrarily many random nested factors, with or without
 replicates, on balanced data.
 
 # Arguments
 - `observations`: Array containing the values to test. For the array, each dimension is a factor level, such that observations[2,5,3] indicates the 2nd level of the first factor, the 5th level of the second factor, and the 3rd level of the third factor. May contain values or vectors of values, where the vector contains replicates. Factors should be ordered with least significant first. For the vector, must provide `factorassignments` to specify factor levels.
 - `factorassignments`: Vector of vectors of integers specifying how each observation is assigned to a factor level. Provide this when `observations` is given as a vector. Factor levels do not have to be consecutive or ordered. Nested factors must reuse factor levels currently.
-- `factortypes`: Vector indicating the `FactorType` for each factor. If present, `replicates` must appear first, any `nested` after, and then `random` or `fixed` in any order. Specify `replicates` if the first dimension of the `observations` matrix contains replicate values (vs. contained in vectors). If too few values are provided, remaining are assumed to be `fixed`.
+- `factortypes`: Vector indicating the `FactorType` for each factor. Factors must be ordered with `nested` first, then `random` or `fixed` in any order. For repeated measures, `subject` or `block` must appear after within-subject `fixed` and before among-subject `fixed`. If too few values are provided, remaining are assumed to be `fixed`.
 - `factornames`: Vector of names for each factor, excluding the replicate factor. If empty, will be automatically populated alphabetically.
+- `hasreplicates`: Boolean to specify if the first level should be considered 
 
 Notes: The last index will be the top factor in the table.
 
@@ -25,14 +32,15 @@ Output: `AnovaData` structure containing the test results for each factor.
 
 # Examples
 ```julia
-anova(observations)                        # N-way fixed-effects ANOVA with replicates (vectors or first dimension)
-anova(observations, hasreplicates = false) # N-way fixed-effects ANOVA without replicates (first dimension)
-anova(observations, [random])              # N-way ANOVA with lower random factor and 1 or 2 upper fixed factors
-anova(observations, [random])              # N-way ANOVA with lower random factor and 1 or 2 upper fixed factors
-anova(observations, [fixed, random])       # N-way ANOVA with 1 lower fixed factor, 1 random factor, and 0 or 1 upper fixed factor
-anova(observations, [nested, random])      # N-way fixed-effects ANOVA with 1 random nested factor, 1 random factor, and 1-2 fixed factors
-anova(observations, [fixed, subject])      # N-way repeated measures ANOVA with 1 within-subjects fixed factor
-anova(observations, [fixed, block])        # N-way repeated measures ANOVA with 1 within-block fixed factor
+anova(observations)                           # N-way fixed-effects ANOVA with replicates (vectors or first dimension)
+anova(observations, hasreplicates = false)    # N-way fixed-effects ANOVA without replicates (first dimension)
+anova(observations, [random])                 # N-way ANOVA with lower random factor and 1 or 2 upper fixed factors
+anova(observations, [random])                 # N-way ANOVA with lower random factor and 1 or 2 upper fixed factors
+anova(observations, [fixed, random])          # N-way ANOVA with 1 lower fixed factor, 1 random factor, and 0 or 1 upper fixed factor
+anova(observations, [nested, random])         # N-way fixed-effects ANOVA with 1 random nested factor, 1 random factor, and 1-2 fixed factors
+anova(observations, [fixed, subject])         # N-way repeated measures ANOVA with 1 within-subjects fixed factor
+anova(observations, [fixed, block])           # N-way repeated measures ANOVA with 1 within-block fixed factor
+anova(observations, [nested, fixed, subject]) # N-way repeated measures ANOVA with 1 within-subjects fixed factor and 1 nested factor
 ```
 
 # Glossary
@@ -270,6 +278,7 @@ function anovaerrors(interactionvars, factortypes, errorvar)
             factor2error = threeway_random_error(interaction12var, interaction23var, interaction123var)
             factor3error = threeway_random_error(interaction13var, interaction23var, interaction123var)
             interaction12error = interaction13error = interaction23error = interaction123var
+
         elseif factortypes[1] == factortypes[2]
             if factortypes[1] == fixed
                 factor1error = interaction13var
@@ -277,11 +286,13 @@ function anovaerrors(interactionvars, factortypes, errorvar)
                 factor3error = errorvar
                 interaction12error = interaction123var
                 interaction13error = interaction23error = errorvar
+
             else
                 factor1error = factor2error = interaction12var
                 factor3error = threeway_random_error(interaction13var, interaction23var, interaction123var)
                 interaction12error = errorvar
                 interaction13error = interaction23error = interaction123var
+
             end
         elseif factortypes[1] == factortypes[3]
             if factortypes[1] == fixed
@@ -290,11 +301,13 @@ function anovaerrors(interactionvars, factortypes, errorvar)
                 factor3error = interaction23var
                 interaction12error = interaction23error = errorvar
                 interaction13error = interaction123var
+
             else
                 factor1error = factor3error = interaction13var
                 factor2error = threeway_random_error(interaction12var, interaction23var, interaction123var)
                 interaction12error = interaction23error = interaction123var
                 interaction13error = errorvar
+
             end
         else
             if factortypes[2] == fixed
@@ -303,11 +316,13 @@ function anovaerrors(interactionvars, factortypes, errorvar)
                 factor3error = interaction13var
                 interaction12error = interaction13error = errorvar
                 interaction23error = interaction123var
+
             else
                 factor1error = threeway_random_error(interaction12var, interaction13var, interaction123var)
                 factor2error = factor3error = interaction23var
                 interaction12error = interaction13error = interaction123var
                 interaction23error = errorvar
+
             end
         end
         factorerrorvars = [factor1error; factor2error; factor3error; interaction12error; interaction13error; interaction23error; errorvar]
@@ -325,6 +340,7 @@ function anovasubjecterrors(interactionvars, factortypes)
     subjectindex = findfirst(x -> x == subject, factortypes)
     
     interaction1s = interactionvars[1]
+    interaction2s = interactionvars[2]
 
     if length(factortypes) == 2
         # one within-subject factor    
@@ -339,7 +355,6 @@ function anovasubjecterrors(interactionvars, factortypes)
 
         else
             # two within-subject factors
-            interaction2s = interactionvars[2]
             factorerrorvars = [interaction1s; interaction2s; interaction12s]
 
         end
@@ -353,7 +368,6 @@ function anovasubjecterrors(interactionvars, factortypes)
             factorerrorvars = [interaction12s; interaction12s; interaction12s; interaction123s; interaction123s; interaction123s; interaction123s]
 
         else
-            interaction12s = interactionvars[7]
             interaction13s = interactionvars[8]
 
             if subjectindex == 2
@@ -362,7 +376,6 @@ function anovasubjecterrors(interactionvars, factortypes)
             
             else
                 # three within-subject factors
-                interaction2s = interactionvars[2]
                 interaction3s = interactionvars[3]
                 interaction23s = interactionvars[9]
                 factorerrorvars = [interaction1s; interaction2s; interaction3s; interaction12s; interaction13s; interaction123s; interaction123s]
@@ -427,7 +440,6 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-#=
 function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
     differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)] # 1 kb between this line and next
     crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
@@ -504,4 +516,3 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
     end
     AnovaResult.(results, ω²)
 end
-=#
