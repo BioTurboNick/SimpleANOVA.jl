@@ -12,3 +12,8 @@
 @enum FactorType fixed random nested subject block
 
 Broadcast.broadcastable(a::FactorType) = (a,) # workaround for current behavior
+
+isnested(x) = x == nested
+isfixed(x) = x == fixed
+israndom(x) = x == random
+issubject(x) = x == subject
