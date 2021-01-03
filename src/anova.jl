@@ -201,11 +201,10 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
 
     nestedvars, nestederrorvars, cellmeans, nreplicates = nestedfactors(cellmeans, nreplicates, nestedfactornames)
 
-    factorvars = anovafactors(cellmeans, nreplicates, factornames)
-    interactionvars = factorvars[(length(factortypes) + 1):end]
+    factorvars, factorvarsdict = anovafactors(cellmeans, nreplicates, factornames)
 
-    factorerrorvars = isrepeatedmeasures ? anovasubjecterrors(interactionvars, factortypes) :
-                                            anovaerrors(interactionvars, factortypes, nestedvars[1])
+    factorerrorvars = isrepeatedmeasures ? anovasubjecterrors(factorvarsdict, factortypes) :
+                                            anovaerrors(factorvarsdict, factortypes, nestedvars[1])
 
     append!(factorvars, nestedvars)
     append!(factorerrorvars, nestederrorvars)
@@ -220,10 +219,12 @@ function anovafactors(cellmeans, nreplicates, factornames)
 
     N = length(cellmeans) * nreplicates
 
-    factors = 1:ndims(cellmeans)
+    nfactors = ndims(cellmeans)
+    factors = 1:nfactors
 
     allfactors = []
     allfactorvars = AnovaFactor[]
+    allfactorsdict = Dict{Any, AnovaFactor}()
     for i ∈ factors
         ifactors = collect(combinations(reverse(factors), i))
         iotherfactors = [factors[Not(i...)] for i ∈ ifactors]
@@ -237,90 +238,83 @@ function anovafactors(cellmeans, nreplicates, factornames)
         
         append!(allfactors, ifactors)
         append!(allfactorvars, ifactorvars)
+        merge!(allfactorsdict, Dict(invertfactorindex.((tuple.(i...) for i ∈ ifactors), nfactors) .=> ifactorvars))
     end
 
-    return allfactorvars
+    return allfactorvars, allfactorsdict
 end
 
-function anovaerrors(interactionvars, factortypes, errorvar)
+function anovaerrors(factorvarsdict, factortypes, errorvar)
     # assign proper error terms for each factor
 
     length(factortypes) == 1 && return [errorvar]
-    all(x -> x == fixed, factortypes) && return repeat([errorvar], length(factortypes) + length(interactionvars))
-
-    interaction12var = interactionvars[1]
+    all(x -> x == fixed, factortypes) && return repeat([errorvar], length(factorvarsdict))
 
     factortypes = reverse(factortypes)
 
     if length(factorvars) == 2
         if factortypes[1] == factortypes[2]
-            factor1error = interaction12var
-            factor2error = interaction12var
+            factor1error = factor2error = factorvarsdict[(1,2)]
         else
             if factortypes[1] == fixed
-                factor1error = interaction12var
+                factor1error = factorvarsdict[(1,2)]
                 factor2error = errorvar
             else
                 factor1error = errorvar
-                factor2error = interaction12var
+                factor2error = factorvarsdict[(1,2)]
             end
         end
         factorerrorvars = [factor1error; factor2error; errorvar]
 
     elseif length(factorvars) == 3
-        interaction12var = interactionvars[1]
-        interaction13var = interactionvars[2]
-        interaction23var = interactionvars[3]
-        interaction123var = interactionvars[4]
-
         if factortypes[1] == factortypes[2] == factortypes[3]
-            factor1error = threeway_random_error(interaction12var, interaction13var, interaction123var)
-            factor2error = threeway_random_error(interaction12var, interaction23var, interaction123var)
-            factor3error = threeway_random_error(interaction13var, interaction23var, interaction123var)
-            interaction12error = interaction13error = interaction23error = interaction123var
+            factor1error = threeway_random_error(factorvarsdict[(1,2)], factorvarsdict[(1,3)], factorvarsdict[(1,2,3)])
+            factor2error = threeway_random_error(factorvarsdict[(1,2)], factorvarsdict[(2,3)], factorvarsdict[(1,2,3)])
+            factor3error = threeway_random_error(factorvarsdict[(1,3)], factorvarsdict[(2,3)], factorvarsdict[(1,2,3)])
+            interaction12error = interaction13error = interaction23error = factorvarsdict[(1,2,3)]
 
         elseif factortypes[1] == factortypes[2]
             if factortypes[1] == fixed
-                factor1error = interaction13var
-                factor2error = interaction23var
+                factor1error = factorvarsdict[(1,3)]
+                factor2error = factorvarsdict[(2,3)]
                 factor3error = errorvar
-                interaction12error = interaction123var
+                interaction12error = factorvarsdict[(1,2,3)]
                 interaction13error = interaction23error = errorvar
 
             else
-                factor1error = factor2error = interaction12var
-                factor3error = threeway_random_error(interaction13var, interaction23var, interaction123var)
+                factor1error = factor2error = factorvarsdict[(1,2)]
+                factor3error = threeway_random_error(factorvarsdict[(1,3)], factorvarsdict[(2,3)], factorvarsdict[(1,2,3)])
                 interaction12error = errorvar
-                interaction13error = interaction23error = interaction123var
+                interaction13error = interaction23error = factorvarsdict[(1,2,3)]
 
             end
         elseif factortypes[1] == factortypes[3]
             if factortypes[1] == fixed
-                factor1error = interaction12var
+                factor1error = factorvarsdict[(1,2)]
                 factor2error = errorvar
-                factor3error = interaction23var
+                factor3error = factorvarsdict[(2,3)]
                 interaction12error = interaction23error = errorvar
-                interaction13error = interaction123var
+                interaction13error = factorvarsdict[(1,2,3)]
 
             else
-                factor1error = factor3error = interaction13var
-                factor2error = threeway_random_error(interaction12var, interaction23var, interaction123var)
-                interaction12error = interaction23error = interaction123var
+                factor1error = factor3error = factorvarsdict[(1,3)]
+                factor2error = threeway_random_error(factorvarsdict[(1,2)], factorvarsdict[(2,3)], factorvarsdict[(1,2,3)])
+                interaction12error = interaction23error = factorvarsdict[(1,2,3)]
                 interaction13error = errorvar
 
             end
         else
             if factortypes[2] == fixed
                 factor1error = errorvar
-                factor2error = interaction12var
-                factor3error = interaction13var
+                factor2error = factorvarsdict[(1,2)]
+                factor3error = factorvarsdict[(1,3)]
                 interaction12error = interaction13error = errorvar
-                interaction23error = interaction123var
+                interaction23error = factorvarsdict[(1,2,3)]
 
             else
-                factor1error = threeway_random_error(interaction12var, interaction13var, interaction123var)
-                factor2error = factor3error = interaction23var
-                interaction12error = interaction13error = interaction123var
+                factor1error = threeway_random_error(factorvarsdict[(1,2)], factorvarsdict[(1,3)], interaction123var)
+                factor2error = factor3error = factorvarsdict[(2,3)]
+                interaction12error = interaction13error = factorvarsdict[(1,2,3)]
                 interaction23error = errorvar
 
             end
@@ -334,52 +328,41 @@ function anovaerrors(interactionvars, factortypes, errorvar)
     return factorerrorvars
 end
 
-function anovasubjecterrors(interactionvars, factortypes)
+function anovasubjecterrors(factorvarsdict, factortypes)
     # doesn't return one for subjects factor or for subject interactions
     factortypes = reverse(factortypes)
-    subjectindex = findfirst(x -> x == subject, factortypes)
+    si = findfirst(x -> x == subject, factortypes)
     
-    interaction1s = interactionvars[1]
-    interaction2s = interactionvars[2]
-
     if length(factortypes) == 2
         # one within-subject factor    
-        factorerrorvars = [interaction1s; interaction1s]
+        factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,2)]]
 
     elseif length(factortypes) == 3
-        interaction12s = interactionvars[4]
-
-        if subjectindex == 2
+        if si == 2
             # one among factor and one within-subject factor
-            factorerrorvars = [interaction1s; interaction12s; interaction12s]
-
+            factorerrorvars = [factorvarsdict[(1,si)];
+                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,3)]]
         else
             # two within-subject factors
-            factorerrorvars = [interaction1s; interaction2s; interaction12s]
-
+            factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)];
+                               factorvarsdict[(si,2,3)]]
         end
-                
     elseif length(factortypes) == 4
-        interaction12s = interactionvars[7]
-        interaction123s = interactionvars[11]
-
-        if subjectindex == 3
+        if si == 3
             # two among factors and one within-subject factor
-            factorerrorvars = [interaction12s; interaction12s; interaction12s; interaction123s; interaction123s; interaction123s; interaction123s]
-
+            factorerrorvars = [repeat(factorvarsdict[(1,2,si)], 3);
+                               repeat(factorvarsdict[(1,2,si,4)], 4)]
+        elseif si == 2
+            # one among factor and two within-subject factors
+            factorerrorvars = [factorvarsdict[(1,si)];
+                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)];
+                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)];
+                               factorvarsdict[(1,si,3,4)]; factorvarsdict[(1,si,3,4)]]
         else
-            interaction13s = interactionvars[8]
-
-            if subjectindex == 2
-                # one among factor and two within-subject factors
-                factorerrorvars = [interaction1s; interaction12s; interaction13s; interaction12s; interaction13s; interaction123s; interaction123s]
-            
-            else
-                # three within-subject factors
-                interaction3s = interactionvars[3]
-                interaction23s = interactionvars[9]
-                factorerrorvars = [interaction1s; interaction2s; interaction3s; interaction12s; interaction13s; interaction123s; interaction123s]
-            end
+            # three within-subject factors
+            factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)]; factorvarsdict[(si,4)];
+                               factorvarsdict[(si,2,3)]; factorvarsdict[(si,2,4)]; factorvarsdict[(si,3,4)];
+                               factorvarsdict[(si,2,3,4)]]
         end
     else
         error("More than 3 non-subject factors are not supported.")
@@ -408,9 +391,13 @@ function nestedfactors(cellmeans, nreplicates, factornames)
 end
 
 anovavalue(name, variance, df) = AnovaValue(name, variance * df, df)
+
 meanfirstdim(observations::AbstractArray{<:Number}) = dropdims(mean(observations, dims = 1), dims = 1)
+
 upcat(x::AbstractArray) = x
 upcat(x::AbstractArray{<:AbstractVector}) = reshape(vcat(x...), (size(x[1])..., size(x)...))
+
+invertfactorindex(index, nfactors) = nfactors .- index .+ 1
 
 makefactorname(factorname::AbstractString) = factorname
 
