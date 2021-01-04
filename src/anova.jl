@@ -171,8 +171,7 @@ mutable struct AnovaData2
 end
 
 #= TODO:
-- Validation for limitations
-- Reimplement effect sizes
+- implement effect size for subjects
 - "remainder" condition for when there are no replicates
 =#
 function anovakernel(observations::AbstractArray{<:Number}, factornames, factortypes, hasreplicates)
@@ -215,7 +214,8 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
 
     # not yet refactored, or accomodating for subject factors
     npercrossedcell = length(observations) ÷ length(cellmeans)
-    effectsizes = effectsizescalc(factorresults, factorerrorvars, totalvar, npercrossedcell, Int[size(cellmeans)...], factortypes, nnested, nnestedfactorlevels, nreplicates)
+    effectsizes = isrepeatedmeasures ? repeat([NaN], length(factorresults)) :
+                                       effectsizescalc(factorresults, factorerrorvars, totalvar, npercrossedcell, Int[size(cellmeans)...], factortypes, nnested, nnestedfactorlevels, nreplicates)
 
     factorresults = AnovaResult.(factorresults, effectsizes)
 
@@ -448,6 +448,18 @@ function effectsizes(results, errorvars, totalvar, nfactors, nnested, nfactorlev
     else
 
     end
+end
+=#
+
+#=
+function subjecteffectsizescalc()
+    # for repeated measures with only one within factor
+    factor = (nfactorlevels[2] - 1) / (nfactorlevels[1] * nfactorlevels[2])
+    numerator = factor * (results[1].ms - errorvars[1].ms)
+    denominator = errorvars[1].ms + (subjectvar.ms - errorvars[1].ms) / nfactorlevels + numerator
+    ω² = numerator / denominator
+
+
 end
 =#
 
