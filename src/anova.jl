@@ -196,20 +196,28 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
 
     nnested = count(isnested, factortypes)
     nestedfactornames = @view factornames[1:nnested]
+    nnestedfactorlevels = size(cellmeans)[1:nnested]
     factornames = @view factornames[(nnested + 1):end]
     factortypes = @view factortypes[(nnested + 1):end]
 
-    nestedvars, nestederrorvars, cellmeans, nreplicates = nestedfactors(cellmeans, nreplicates, nestedfactornames)
+    nestedvars, nestederrorvars, cellmeans, nnestedreplicates = nestedfactors(cellmeans, nreplicates, nestedfactornames, errorvar)
 
-    factorvars, factorvarsdict = anovafactors(cellmeans, nreplicates, factornames)
+    factorvars, factorvarsdict = anovafactors(cellmeans, nnestedreplicates, factornames)
 
     factorerrorvars = isrepeatedmeasures ? anovasubjecterrors(factorvarsdict, factortypes) :
-                                            anovaerrors(factorvarsdict, factortypes, nestedvars[1])
+                      nnested > 0 ? anovaerrors(factorvarsdict, factortypes, nestedvars[1]) :
+                      anovaerrors(factorvarsdict, factortypes, errorvar)
 
     append!(factorvars, nestedvars)
     append!(factorerrorvars, nestederrorvars)
 
     factorresults = ftest.(factorvars, factorerrorvars)
+
+    # not yet refactored, or accomodating for subject factors
+    npercrossedcell = length(observations) ÷ length(cellmeans)
+    effectsizes = effectsizescalc(factorresults, factorerrorvars, totalvar, npercrossedcell, Int[size(cellmeans)...], factortypes, nnested, nnestedfactorlevels, nreplicates)
+
+    factorresults = AnovaResult.(factorresults, effectsizes)
 
     return AnovaData2([totalvar; factorresults; errorvar])
 end
@@ -232,7 +240,7 @@ function anovafactors(cellmeans, nreplicates, factornames)
 
         ifactornames = [makefactorname(factornames[i]) for i ∈ ifactors]
         ifactorss = [var(mean(cellmeans, dims = iotherfactors[i]), corrected = false) * N - sum(iupperfactorvars[i]).ss for i ∈ eachindex(iotherfactors)]
-        ifactordf = isempty(iupperfactorvars[1]) ? [size(cellmeans, i) - 1 for i ∈ factors] :
+        ifactordf = isempty(iupperfactorvars[1]) ? [size(cellmeans, invertfactorindex(i, nfactors)) - 1 for i ∈ factors] :
                                                    [prod(f.df for f ∈ iupperfactorvars[j][1:i]) for j ∈ eachindex(iotherfactors)]
         ifactorvars = AnovaFactor.(ifactornames, ifactorss, ifactordf)
         
@@ -248,7 +256,7 @@ function anovaerrors(factorvarsdict, factortypes, errorvar)
     # assign proper error terms for each factor
 
     length(factortypes) == 1 && return [errorvar]
-    all(x -> x == fixed, factortypes) && return repeat([errorvar], length(factorvarsdict))
+    all(isfixed, factortypes) && return repeat([errorvar], length(factorvarsdict))
 
     factortypes = reverse(factortypes)
 
@@ -371,7 +379,7 @@ function anovasubjecterrors(factorvarsdict, factortypes)
     return factorerrorvars
 end
 
-function nestedfactors(cellmeans, nreplicates, factornames)
+function nestedfactors(cellmeans, nreplicates, factornames, errorvar)
     # compute nested factors and collapse nested levels
 
     nnested = length(factornames)
@@ -427,9 +435,29 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-function effectsizescalc(results, denominators, total, ncrossedfactors, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
-    differences = [results[i].ms - denominators[i].ms for i ∈ eachindex(results)] # 1 kb between this line and next
+#=
+function effectsizes(results, errorvars, totalvar, nfactors, nnested, nfactorlevels, nreplicates)
+    if nfactors == 1
+        if nnested == 0
+            ω² = [(results[1].ss - results[1].df * errorvars[1].ms) / (totalvar.ss + errorvars[1].ms)]
+        else
+            effectdenominators = repeat([nreplicates], nnestedfactors + 1)
+            effectdenominators[1] *= prod(nfactorlevels)
+
+        end
+    else
+
+    end
+end
+=#
+
+function effectsizescalc(results, errorvars, total, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
+    ncrossedfactors = length(crossedfactortypes)
+    differences = [results[i].ms - errorvars[i].ms for i ∈ eachindex(results)] # 1 kb between this line and next
     crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
+    ncrossedfactorlevels = reverse(ncrossedfactorlevels)
+    nnestedfactorlevels = reverse(nnestedfactorlevels)
+    crossedfactortypes = reverse(crossedfactortypes)
 
     if nreplicates == 1 && nnestedfactors > 0
         nnestedfactors -= 1
@@ -438,10 +466,10 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
 
     if ncrossedfactors == 1
         if nnestedfactors == 0
-            ω² = [(results[1].ss - results[1].df * denominators[1].ms) / (total.ss + denominators[1].ms)]
+            ω² = [(results[1].ss - results[1].df * errorvars[1].ms) / (total.ss + errorvars[1].ms)]
         else
             effectdenominators = repeat([nreplicates], nnestedfactors + 1)
-            nfactorlevels = [ncrossedfactorlevels; nnestedfactorlevels]
+            nfactorlevels = [ncrossedfactorlevels...; nnestedfactorlevels...]
             effectdenominators[1] *= prod(nfactorlevels)
             factors = ones(Int, nnestedfactors + 1)
             factors[1] = crossedfactordfs[1]
@@ -449,7 +477,7 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
                 effectdenominators[2:(end - i + 1)] .*= nfactorlevels[end - i + 2]
             end
             σ² = factors .* differences ./ effectdenominators
-            σ²total = sum(σ²) + denominators[end].ms
+            σ²total = sum(σ²) + errorvars[end].ms
             ω² = σ² ./ σ²total
         end
     else
@@ -474,17 +502,17 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
         icrossed = 1:ncrossedfactors # this whole block 1 kb
         iother = ncrossedfactors < imax ? ((ncrossedfactors + 1):imax) : []
         factors = Vector{Int}(undef, imax)
-        factors[icrossed] = [crossedfactortypes[i] == fixed ? crossedfactordfs[i] : 1 for i ∈ icrossed]
+        factors[icrossed] = [isfixed(crossedfactortypes[i]) ? crossedfactordfs[i] : 1 for i ∈ icrossed]
         factors[iother] = [prod(factors[x]) for x ∈ interactionindexes]
 
         effectsdenominators = repeat([npercrossedcell], imax)
-        israndom = [x == random for x ∈ crossedfactortypes] # Originally used broadcasted equality (.==) but causes high allocations as of 1.3.0-rc3
-        isfixed = [x == fixed for x ∈ crossedfactortypes]
+        israndomtype = israndom.(crossedfactortypes) # Originally used broadcasted equality (.==) but causes high allocations as of 1.3.0-rc3
+        isfixedtype = isfixed.(crossedfactortypes)
         crossedeffectsdenominators = effectsdenominators[icrossed]
-        crossedeffectsdenominators[isfixed] .*= prod(ncrossedfactorlevels)
-        crossedeffectsdenominators[israndom] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ icrossed[israndom]]
+        crossedeffectsdenominators[isfixedtype] .*= prod(ncrossedfactorlevels)
+        crossedeffectsdenominators[israndomtype] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ icrossed[israndomtype]]
         effectsdenominators[icrossed] = crossedeffectsdenominators
-        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndom] ∩ x)]) for x ∈ interactionindexes] # 7kb - set intersection is 1kb, has to be done for each interaction
+        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndomtype] ∩ x)]) for x ∈ interactionindexes] # 7kb - set intersection is 1kb, has to be done for each interaction
 
         σ² = factors .* differences[1:imax] ./ effectsdenominators
 
@@ -498,8 +526,8 @@ function effectsizescalc(results, denominators, total, ncrossedfactors, npercros
             σ² = [σ²; σ²nested]
         end
 
-        σ²total = sum(σ²) + denominators[end].ms
+        σ²total = sum(σ²) + errorvars[end].ms
         ω² = σ² ./ σ²total
     end
-    AnovaResult.(results, ω²)
+    return ω²
 end

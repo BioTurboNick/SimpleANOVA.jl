@@ -521,7 +521,7 @@
             end
         end
 
-        @testset "Repeated measures ANOVA with no among-group factors" begin
+        @testset "Repeated measures ANOVA with no among-subject factors" begin
             observations1 = Array{Vector{Float64}, 2}(undef, 2, 2)
             observations1[1,1] = [8]
             observations1[2,1] = [7]

@@ -17,7 +17,7 @@ tukey(results, [1,2])
 =#
 
 
-using Distributions, Requires, InvertedIndices, Statistics
+using Distributions, Requires, InvertedIndices, Statistics, Combinatorics
 
 include("data/AnovaEffect.jl")
 include("data/AnovaValue.jl")
