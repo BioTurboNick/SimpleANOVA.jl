@@ -39,4 +39,4 @@ isapprox(x::AnovaResult, y::AnovaResult) =
     x.ms ≈ y.ms &&
     x.f ≈ y.f &&
     x.p ≈ y.p &&
-    x.ω² ≈ y.ω²
+    (isnan(x.ω²) && isnan(y.ω²) || x.ω² ≈ y.ω²)

@@ -36,7 +36,8 @@ function levene(observations::AbstractArray{T}) where {T <: Union{Number, Abstra
     nfactorlevels = firstlevelreplicates ? [size(observations)...][Not(1)] : [size(observations)...]
 
     observations = firstlevelreplicates ? reshape(observations, nreplicates, ncells) : reshape(observations, ncells)
-    levenekernel(observations, nreplicates, ncells)
+    observations = upcat(observations)
+    levenekernel(observations, nreplicates)
 end
 
 function levene(observations::AbstractVector{T}, factorassignments::AbstractVector{<:AbstractVector}) where {T <: Number}
@@ -70,17 +71,17 @@ function levene(observations::AbstractVector{T}, factorassignments::AbstractVect
                          sum([factorassignments[i] .* prod(nlevels[1:i]) for i ∈ 1:nfactors]))
     observationsmatrix = reshape(observations[sortorder], nreplicates, ncells)
 
-    levenekernel(observationsmatrix, nreplicates, ncells)
+    levenekernel(observationsmatrix, nreplicates)
 end
 
-function levenekernel(observations, nreplicates, ncells)
+function levenekernel(observations, nreplicates)
     cellmeans = meanfirstdim(observations)
     if eltype(observations) <: Number
         absdevs = abs.(observations .- cellmeans')
     else
         absdevs = [abs.(observations[i] .- cellmeans[i]) for i ∈ eachindex(observations)]
     end
-    anovakernel(absdevs, nreplicates, ncells, 0, 1, [ncells], [fixed], ["Groups"], String[])
+    anovakernel(absdevs, ["Groups"], [fixed], nreplicates > 1)
 end
 
 export levene

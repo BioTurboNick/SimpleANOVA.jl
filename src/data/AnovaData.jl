@@ -5,17 +5,14 @@ Container for the complete results of an ANOVA test.
 """
 mutable struct AnovaData{N}
     effects::Vector{AnovaEffect}
-    total::AnovaValue
-    ncrossedfactors::Int
+    errors::Vector{<:AnovaEffect}
     ncrossedfactorlevels::Vector{Int}
     npercrossedcell::Int
-    crossedfactors::Vector{AnovaFactor}
-    crossedfactorsdenominators::Vector{AnovaFactor}
     crossedcellmeans::Array{Float64, N}
 end
 
 import Base.show
-function show(io::IO, ad::AnovaData2)
+function show(io::IO, ad::AnovaData)
     colnames = ["Effect", "SS", "DF", "MS", "F", "p", "ω²"]
     rownames = [e.name for e ∈ ad.effects]
     nrows = length(ad.effects)
