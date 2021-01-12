@@ -18,6 +18,8 @@ Can also work with multiple vectors and DataFrames.
 
 **New in v0.6**: Linear contrasts added for planned post-hoc tests between factor levels. (Disclaimer: Uncertain if contrasts for multiple factors are correct.)
 
+**New in v0.7**: Repeated measures added. Effect size not yet supported.
+
 See docstrings for usage.
 
 **Experimental, use at own risk!**
