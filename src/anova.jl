@@ -171,10 +171,6 @@ end
 # possible bug: function anova(data::AnovaData, crossedfactors::Vector{Int}, ) with normal functions ==> hang when called?
 =#
 
-#= TODO:
-- implement effect size for subjects
-- "remainder" condition for when there are no replicates
-=#
 function anovakernel(observations::AbstractArray{<:Number}, factornames, factortypes, hasreplicates)
     isrepeatedmeasures = subject ∈ factortypes
 
@@ -458,25 +454,6 @@ function subjectinteractions(cellmeans, si, nreplicates, factornames)
     end
     return factorvarsdict
 end
-#=
-
-For the subject-interaction factors, I need to compute as if I had split the data by among factor levels,
-then do the interaction calculations within them, then sum the result of each
-
-More generalized:
-
-Do among-factor calculation
-
-Within each among-factor (A) cell, do independent repeated-measures anovas
-
-BxA = sum(independent factor B ss) - (overall factor B ss)
-CxA = sum(independent factor C ss) - (overall factor C ss)
-BxAxS = sum(independent factor BxA ss)
-CxAxS = sum(independent factor CxA ss)
-
-Overall Factor B interacted with A = sum(independent factor Bs) - among factor ss
-
-=#
 
 anovavalue(name, variance, df) = AnovaValue(name, variance * df, df)
 
@@ -525,34 +502,6 @@ function ftest(x, y)
     p = ccdf(fdist, f)
     AnovaResult(x, f, p)
 end
-
-#=
-function effectsizes(results, errorvars, totalvar, nfactors, nnested, nfactorlevels, nreplicates)
-    if nfactors == 1
-        if nnested == 0
-            ω² = [(results[1].ss - results[1].df * errorvars[1].ms) / (totalvar.ss + errorvars[1].ms)]
-        else
-            effectdenominators = repeat([nreplicates], nnestedfactors + 1)
-            effectdenominators[1] *= prod(nfactorlevels)
-
-        end
-    else
-
-    end
-end
-=#
-
-#=
-function subjecteffectsizescalc()
-    # for repeated measures with only one within factor
-    factor = (nfactorlevels[2] - 1) / (nfactorlevels[1] * nfactorlevels[2])
-    numerator = factor * (results[1].ms - errorvars[1].ms)
-    denominator = errorvars[1].ms + (subjectvar.ms - errorvars[1].ms) / nfactorlevels + numerator
-    ω² = numerator / denominator
-
-
-end
-=#
 
 function effectsizescalc(results, errorvars, total, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
     ncrossedfactors = length(crossedfactortypes)
