@@ -161,6 +161,8 @@ function validate(observations, factortypes::Vector{FactorType}, factornames::Ve
     length(factornames) == nfactors || error("factornames must have an entry for each factor.")
 end
 
+
+
 #=
 function anova(data::AnovaData, crossedfactors::Vector{Int}, )
     # performs a subtest of the specified crossed factors within level of the remaing crossed factors, using the original errors
@@ -200,19 +202,29 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
 
     nestedvars, nestederrorvars, cellmeans, nnestedreplicates = nestedfactors(cellmeans, nreplicates, nestedfactornames, errorvar)
 
-    factorvars, factorvarsdict = anovafactors(cellmeans, nnestedreplicates, factornames)
-
-    factorerrorvars = isrepeatedmeasures ? anovasubjecterrors(factorvarsdict, factortypes) :
-                      nnested > 0 ? anovaerrors(factorvarsdict, factortypes, nestedvars[1]) :
-                      hasreplicates ? anovaerrors(factorvarsdict, factortypes, errorvar) :
-                      anovaerrors(factorvarsdict, factortypes, factorvars[end])
+    if isrepeatedmeasures
+        si = findfirst(x -> x == subject, factortypes)
+        factorvars, factorvarsdict = anovafactors(dropdims(mean(cellmeans, dims = si), dims = si), nnestedreplicates * size(cellmeans, si), factornames[Not(si)])
+        subjectinteractionvarsdict = subjectinteractions(cellmeans, si, nnestedreplicates, factornames)
+        merge!(factorvarsdict, subjectinteractionvarsdict)
+        factorerrorvars = anovasubjecterrors(factorvarsdict, factortypes)
+    else
+        factorvars, factorvarsdict = anovafactors(cellmeans, nnestedreplicates, factornames)
+        factorerrorvars = nnested > 0 ? anovaerrors(factorvarsdict, factortypes, nestedvars[1]) :
+                          hasreplicates ? anovaerrors(factorvarsdict, factortypes, errorvar) :
+                          anovaerrors(factorvarsdict, factortypes, factorvars[end])
+    end
 
     append!(factorvars, nestedvars)
     append!(factorerrorvars, nestederrorvars)
 
     if !hasreplicates
-        remaindervar = pop!(factorvars)
-        pop!(factorerrorvars)
+        if isrepeatedmeasures
+            remaindervar = factorerrorvars[end]
+        else
+            remaindervar = pop!(factorvars)
+            pop!(factorerrorvars)
+        end
         factorresults = ftest.(factorvars, factorerrorvars)
         errorvar = AnovaFactor(remaindername, remaindervar)
     else
@@ -242,7 +254,7 @@ function anovafactors(cellmeans, nreplicates, factornames)
 
     allfactors = []
     allfactorvars = AnovaFactor[]
-    allfactorsdict = Dict{Any, AnovaFactor}()
+    allfactorsdict = Dict{Any, AnovaEffect}()
     for i ∈ factors
         ifactors = collect(combinations(reverse(factors), i))
         iotherfactors = [factors[Not(i...)] for i ∈ ifactors]
@@ -347,46 +359,47 @@ function anovaerrors(factorvarsdict, factortypes, errorvar)
 end
 
 function anovasubjecterrors(factorvarsdict, factortypes)
-    # doesn't return one for subjects factor or for subject interactions
     factortypes = reverse(factortypes)
     si = findfirst(x -> x == subject, factortypes)
-    
-    if length(factortypes) == 2
-        # one within-subject factor    
-        factorerrorvars = [zero(AnovaFactor); factorvarsdict[(si,2)]; zero(AnovaFactor)]
 
-    elseif length(factortypes) == 3
+    nfactors = length(factortypes)
+
+    if nfactors == 2
+        # one within-subject factor    
+        factorerrorvars = [factorvarsdict[(si,2)]]
+
+    elseif nfactors == 3
         if si == 2
             # one among factor and one within-subject factor
-            factorerrorvars = [factorvarsdict[(1,si)];
-                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,3)]]
+            factorerrorvars = [factorvarsdict[(1,si)]; factorvarsdict[(1,si,3)]; 
+                               factorvarsdict[(1,si,3)]]
         else
             # two within-subject factors
             factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)];
                                factorvarsdict[(si,2,3)]]
         end
-    elseif length(factortypes) == 4
+    elseif nfactors == 4
         if si == 3
             # two among factors and one within-subject factor
-            factorerrorvars = [repeat(factorvarsdict[(1,2,si)], 3);
-                               repeat(factorvarsdict[(1,2,si,4)], 4)]
+            factorerrorvars = [factorvarsdict[(1,2,si)]; factorvarsdict[(1,2,si)]; factorvarsdict[(1,2,si)];
+                               factorvarsdict[(1,2,si,4)]; factorvarsdict[(1,2,si,4)]; factorvarsdict[(1,2,si,4)]; zero(AnovaFactor);
+                               factorvarsdict[(1,2,si,4)]]
         elseif si == 2
             # one among factor and two within-subject factors
-            factorerrorvars = [factorvarsdict[(1,si)];
-                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)];
-                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)];
-                               factorvarsdict[(1,si,3,4)]; factorvarsdict[(1,si,3,4)]]
+            factorerrorvars = [factorvarsdict[(1,si)]; factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)];
+                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)]; factorvarsdict[(1,si,3,4)];
+                               factorvarsdict[(1,si,3,4)]]
         else
             # three within-subject factors
             factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)]; factorvarsdict[(si,4)];
                                factorvarsdict[(si,2,3)]; factorvarsdict[(si,2,4)]; factorvarsdict[(si,3,4)];
-                               factorvarsdict[(si,2,3,4)]]
+                               factorvarsdict[(si,2,3,4)];]
         end
     else
         error("More than 3 non-subject factors are not supported.")
     end
 
-    return factorerrorvars
+    return AnovaFactor.(factorerrorvars)
 end
 
 function nestedfactors(cellmeans, nreplicates, factornames, errorvar)
@@ -407,6 +420,63 @@ function nestedfactors(cellmeans, nreplicates, factornames, errorvar)
                                     []
     return reverse!(nestedvars), reverse!(nestederrorvars), cellmeans, nreplicates
 end
+
+function subjectfactor(cellmeans, si, nreplicates, factornames)
+    withinfactors = 1:(si - 1)
+    nreplicates *= prod(size(cellmeans)[withinfactors])
+    cellmeans = dropdims(mean(cellmeans, dims = withinfactors), dims = tuple(withinfactors...))
+    subjectmeans = mean(cellmeans, dims = 1)
+    ss = sum((cellmeans .- subjectmeans) .^ 2) * nreplicates
+    df = (size(cellmeans, 1) - 1) * prod(size(subjectmeans))
+    AnovaFactor(factornames[si], ss, df)
+end
+
+function subjectinteractions(cellmeans, si, nreplicates, factornames)
+    cellmeans = reshape(cellmeans, (size(cellmeans)[1:si]..., prod(size(cellmeans)[(si + 1):end])))
+    namongfactors = length(factornames) - si
+    
+    factorvarsdict = Dict{Any, AnovaEffect}()
+    for i ∈ axes(cellmeans, si + 1)
+        _, ifactorvarsdict = @views anovafactors(selectdim(cellmeans, si + 1, i), nreplicates, factornames[1:si])
+
+        if isempty(factorvarsdict)
+            for k ∈ keys(ifactorvarsdict)
+                1 ∈ k || continue
+
+                newk = ((1:namongfactors)..., (k .+ namongfactors)...)
+                ifactor = ifactorvarsdict[k]
+                factorvarsdict[newk] = AnovaValue(makefactorname(factornames[invertfactorindex.(collect(k[2:end]), length(factornames))], factornames[si], factornames[(si + 1):end]), ifactor)
+            end
+        else
+            for k ∈ keys(ifactorvarsdict)
+                1 ∈ k || continue
+
+                newk = ((1:namongfactors)..., (k .+ namongfactors)...)
+                factorvarsdict[newk] += ifactorvarsdict[k]
+            end
+        end
+    end
+    return factorvarsdict
+end
+#=
+
+For the subject-interaction factors, I need to compute as if I had split the data by among factor levels,
+then do the interaction calculations within them, then sum the result of each
+
+More generalized:
+
+Do among-factor calculation
+
+Within each among-factor (A) cell, do independent repeated-measures anovas
+
+BxA = sum(independent factor B ss) - (overall factor B ss)
+CxA = sum(independent factor C ss) - (overall factor C ss)
+BxAxS = sum(independent factor BxA ss)
+CxAxS = sum(independent factor CxA ss)
+
+Overall Factor B interacted with A = sum(independent factor Bs) - among factor ss
+
+=#
 
 anovavalue(name, variance, df) = AnovaValue(name, variance * df, df)
 
@@ -430,6 +500,16 @@ function makefactorname(factornames::AbstractVector{<:AbstractString})
     end
 
     return factorname
+end
+
+function makefactorname(withinfactornames::AbstractVector{<:AbstractString}, subjectfactorname, amongfactornames::AbstractVector{<:AbstractString})
+    subjectname = subjectfactorname 
+
+    if !isempty(amongfactornames)
+        subjectname *= "[" * makefactorname(amongfactornames) * "]"
+    end
+
+    makefactorname([withinfactornames; subjectname])
 end
 
 function threeway_random_error(interaction_ab, interaction_bc, interaction_abc)

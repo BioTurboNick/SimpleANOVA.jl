@@ -16,6 +16,7 @@ struct AnovaValue <: AnovaEffect
 end
 
 AnovaValue(ss, df) = AnovaValue("", ss, df)
+AnovaValue(name, x::AnovaEffect) = AnovaValue(name, x.ss, x.df)
 
 import Base.isapprox
 isapprox(x::AnovaValue, y::AnovaValue) =

@@ -558,11 +558,10 @@
 
             observations2 = [8  9  6  5  8  7 10 12
                              7  5  2  3  4  5  2  6
-                             1  2  3  1  5  6  7  8 
+                             1  2  3  1  5  6  7  8
                              6  5  8  9  8  7  2  1]
             
             expected = [AnovaValue(     "Total", 253.875, 31),
-                        AnovaResult(        "S",  17.375,  7,  2.48214286, Inf,      0,           NaN),
                         AnovaResult(        "A",  83.125,  3, 27.708333,   3.793806, 0.025570297, NaN),
                         AnovaFactor("Remainder", 153.375, 21,  7.3035714)]
  
@@ -577,40 +576,50 @@
             end
         end
 
-        #=
-        observations = cat([  1  38  10;  43  20   9; 15  20   6; 40  28  20;  8 11  27; 17  17   9;  30  15  19;  34  27  12;  34  24 12; 26  23 21; 1  28  33;   7  26  23; 22  34  21; 30  32  17; 40 24  15; 15  29  13;  20  30  16;   9  24  17;  14  34 19; 15  23 29],
-        [  6  -5 -14;  30 -12 -10; 15 -15 -16; 30  -4 -10; 12 -2   5; 17  -6  -6;  21  -2 -20;  23  -7 -12;  20 -10 -9; 27 -15 -6; -19 -13  -2; -18 -16 -17; -8 -23 -19; -6 -22 -11; -6 -9 -10; -9 -18 -17; -17 -17  -4; -12 -15  -4; -11 -14 -1; -6 -15 -1],
-        [  5   4  -2;   8   4 -13; 12   6   1; 19   0   2;  8  6  -5; 15   6 -13;  21  16   3;  28   7   2;  26  12  4; 27  14  0; -10  13   9;   6  19   5;  4  14   0;  3  21   4;  0 19   2;  4   7   8;   9  12  10;  -5  18   8;   7  20 12; 13  15 10], dims = 3)
-        AnovaFactor("B", 21628.677777777782, 2.0, 10814.338888888891)
-        AnovaFactor("C", 2092.344444444445, 2.0, 1046.1722222222224)
-        AnovaFactor("B × C", 2624.422222222216, 4.0, 656.105555555554)
-        AnovaValue("Within Subjects", 40390.88888888888, 160.0)
-        AnovaValue("Total", 42310.99444444444, 179.0)
-        AnovaFactor("S/B", 3352.8777777777673, 38.0, 88.23362573099388)
-        AnovaFactor("S/C", 7785.87777777778, 38.0, 204.8915204678363)
-        AnovaValue("S/BC", 2906.6888888888916, 76.0)
+        @testset "Repeated measures ANOVA with two within-subject factors and no among-subjects factors" begin
+            observations = cat([  1  38  10;  43  20   9; 15  20   6; 40  28  20;  8 11  27; 17  17   9;  30  15  19;  34  27  12;  34  24 12; 26  23 21; 1  28  33;   7  26  23; 22  34  21; 30  32  17; 40 24  15; 15  29  13;  20  30  16;   9  24  17;  14  34 19; 15  23 29],
+                            [  6  -5 -14;  30 -12 -10; 15 -15 -16; 30  -4 -10; 12 -2   5; 17  -6  -6;  21  -2 -20;  23  -7 -12;  20 -10 -9; 27 -15 -6; -19 -13  -2; -18 -16 -17; -8 -23 -19; -6 -22 -11; -6 -9 -10; -9 -18 -17; -17 -17  -4; -12 -15  -4; -11 -14 -1; -6 -15 -1],
+                            [  5   4  -2;   8   4 -13; 12   6   1; 19   0   2;  8  6  -5; 15   6 -13;  21  16   3;  28   7   2;  26  12  4; 27  14  0; -10  13   9;   6  19   5;  4  14   0;  3  21   4;  0 19   2;  4   7   8;   9  12  10;  -5  18   8;   7  20 12; 13  15 10], dims = 3)
+                                
+            observations = permutedims(observations, (2,3,1))
 
-        @testset "Repeated measures ANOVA with two within-subject factors and one among-subjects factors" begin
-            observations = cat(cat([  1  38  10;  43  20   9; 15  20   6; 40  28  20;  8 11  27; 17  17   9;  30  15  19;  34  27  12;  34  24 12; 26  23 21],
-                                   [  6  -5 -14;  30 -12 -10; 15 -15 -16; 30  -4 -10; 12 -2   5; 17  -6  -6;  21  -2 -20;  23  -7 -12;  20 -10 -9; 27 -15 -6],
-                                   [  5   4  -2;   8   4 -13; 12   6   1; 19   0   2;  8  6  -5; 15   6 -13;  21  16   3;  28   7   2;  26  12  4; 27  14  0], dims = 3),
-                               cat([  1  28  33;   7  26  23; 22  34  21; 30  32  17; 40 24  15; 15  29  13;  20  30  16;   9  24  17;  14  34 19; 15  23 29],
-                                   [-19 -13  -2; -18 -16 -17; -8 -23 -19; -6 -22 -11; -6 -9 -10; -9 -18 -17; -17 -17  -4; -12 -15  -4; -11 -14 -1; -6 -15 -1],
-                                   [-10  13   9;   6  19   5;  4  14   0;  3  21   4;  0 19   2;  4   7   8;   9  12  10;  -5  18   8;   7  20 12; 13  15 10], dims = 3), dims = 4)
-            
-            # NOT CORRECT VALUES YET
-            expected = [AnovaValue( "Total", 1827.6975, 19),
-                        AnovaResult(    "A",   70.3125,  1,   70.3125,  3.0706495,  0.098856175,  0.025621074),
-                        AnovaResult(    "B", 1386.1125,  1, 1386.1125, 60.533556,   7.9430782e-7, 0.73663535),
-                        AnovaResult("A × B",    4.9005,  1,    4.9005,  0.21401199, 0.64987001,  -0.0097253817),
-                        AnovaFactor("Error",  366.372,  16,   22.89825)]
- 
+            expected = [AnovaValue( "Total",     42310.994,   179),
+                        AnovaResult(    "A",     21628.678,     2, 10814.339,    122.564825, 2.6801966e-17, NaN),
+                        AnovaResult(    "B",      2092.34444,   2,  1046.17222,    5.105981, 0.0108629307,  NaN),
+                        AnovaResult("A × B",      2624.4222,    4,   656.10556,  17.1549224, 4.5890403e-10,  NaN),
+                        AnovaFactor("Remainder",  2906.6889,   76,    38.245906)]
+
             @testset "Replicate First Dimension" begin
-                results = anova(observations2, [within, subject])
+                results = anova(observations, [fixed, fixed, subject], factornames = ["B", "A", "S"], hasreplicates = false)
                 @test all(expected .≈ results.effects)
             end
         end
-        =#
+
+        @testset "Repeated measures ANOVA with two within-subject factors and one among-subjects factors" begin
+            observations = cat(cat([  1  38  10;  43  20   9; 15  20   6; 40  28  20;  8 11  27],
+                                   [  6  -5 -14;  30 -12 -10; 15 -15 -16; 30  -4 -10; 12 -2   5],
+                                   [  5   4  -2;   8   4 -13; 12   6   1; 19   0   2;  8  6  -5], dims = 3),
+                               cat([  1  28  33;   7  26  23; 22  34  21; 30  32  17; 40 24  15],
+                                   [-19 -13  -2; -18 -16 -17; -8 -23 -19; -6 -22 -11; -6 -9 -10],
+                                   [-10  13   9;   6  19   5;  4  14   0;  3  21   4;  0 19   2], dims = 3), dims = 4)
+            
+            observations = permutedims(observations, (2,3,1,4))
+
+            expected = [AnovaValue( "Total",     23021.6,      89),
+                        AnovaResult(    "A",       106.71111,   1,  106.71111,   1.3357441,  0.28113388,     NaN),
+                        AnovaResult(    "B",     11800.8667,    2, 5900.4333,  132.826163,   1.08455885e-10, NaN),
+                        AnovaResult(    "C",       864.26667,   2,  432.13333,   2.6831321,  0.098885156,    NaN),
+                        AnovaResult("A × B",      1554.8222,    2,  777.4111,   17.5005,     9.3827532e-5,   NaN),
+                        AnovaResult("A × C",      1504.6222,    2,  752.3111,    4.671128,   0.0252462965,   NaN),
+                        AnovaResult("B × C",      1483.86667,   4,  370.96667,   8.206975,   0.000113071502, NaN),
+                        AnovaResult("A × B × C",   333.244445,  4,   83.31111,   1.84310954, 0.14485915,     NaN),
+                        AnovaFactor("Remainder",  1446.44444,  32,   45.201389)]
+ 
+            @testset "Replicate First Dimension" begin
+                results = anova(observations, [fixed, fixed, subject], factornames = ["C", "B", "S", "A"], hasreplicates = false)
+                @test all(expected .≈ results.effects)
+            end
+        end
     end
 
     @testset "Vectors" begin
