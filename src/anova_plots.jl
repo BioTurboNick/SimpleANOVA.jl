@@ -11,12 +11,11 @@ Enables inspection of ANOVA for the effect size of interactions and relationship
 Import Plots package to use this.
 """
 function plot(anova::AnovaData)
-    nfactors = length(anova.crossedfactors)
+    nfactors = ndims(anova.crossedcellmeans)
     if nfactors == 1
         error("Not useful to plot just one factor.")
     end
     nfactorlevels = size(anova.crossedcellmeans)
-    clibrary(:cmocean)
     plots = Array{Plots.Plot, 2}(undef, nfactors, nfactors)
     for i in 1:nfactors
         otherfactorindexes = (1:nfactors)[Not(i)]

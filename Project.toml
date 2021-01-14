@@ -1,7 +1,7 @@
 name = "SimpleANOVA"
 uuid = "fff527a3-8410-504e-9ca3-60d5e79bb1e4"
 authors = ["Nicholas Bauer <nicholasbauer@outlook.com>"]
-version = "0.7.0"
+version = "0.7.1"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
