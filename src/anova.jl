@@ -161,7 +161,9 @@ function validate(observations, factortypes::Vector{FactorType}, factornames::Ve
     length(factornames) == nfactors || error("factornames must have an entry for each factor.")
 end
 
-
+function robust(observations)
+    
+end
 
 #=
 function anova(data::AnovaData, crossedfactors::Vector{Int}, )

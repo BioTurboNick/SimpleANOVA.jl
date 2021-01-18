@@ -25,7 +25,7 @@ t1waybt <- function(formula, data, tr = 0.2, nboot = 599){
     hval[j] <- length(x[[grp[j]]]) - 2 * floor(tr * length(x[[grp[j]]]))                     # I believe this is deciding the number to select from each group `N - 2 * tr * N`
     xcen <- x[[grp[j]]] - mean(x[[grp[j]]],tr)                                               # subtracting the trimmed mean of the group from each measurement in the group
     data <- matrix(sample(xcen,size=length(x[[grp[j]]])*nboot,replace=TRUE),nrow=nboot)      # take `nboot` samples (with replacement) from the difference between the data and trimmed mean
-    bvec[j,,] <- apply(data,1,trimparts,tr) # A 2 by nboot matrix. The first row             # for each group, compute the trimmed mean, squared standard error, and effective sample size
+    bvec[j,,] <- apply(data,1,trimparts,tr) # A 2 by nboot matrix. The first row             # for each sample, compute the trimmed mean, squared standard error, and effective sample size
   }
   m1 <- bvec[,1,]  # J by nboot matrix containing the bootstrap trimmed means
   m2 <- bvec[,2,]  # J by nboot matrix containing the bootstrap sq standard errors           # 
