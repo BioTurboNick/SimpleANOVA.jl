@@ -521,6 +521,31 @@
             end
         end
 
+        @testset "Repeated measures ANOVA with no within-subject factors and has replicates" begin
+            observations1 = Array{Vector{Float64}, 2}(undef, 2, 2)
+            observations1[1,1] = [16.5, 18.4, 12.7, 14.0, 12.8]
+            observations1[1,2] = [14.5, 11.0, 10.8, 14.3, 10.0]
+            observations1[2,1] = [39.1, 26.2, 21.3, 35.8, 40.2]
+            observations1[2,2] = [32.0, 23.8, 28.8, 25.0, 29.3]
+
+            observations2 = cat(hcat([16.5, 18.4, 12.7, 14.0, 12.8], [39.1, 26.2, 21.3, 35.8, 40.2]),
+                                hcat([14.5, 11.0, 10.8, 14.3, 10.0], [32.0, 23.8, 28.8, 25.0, 29.3]), dims = 3)
+            
+            expected = [AnovaValue( "Total", 1827.6975, 19),
+                        AnovaResult(    "A",   70.3125,  1,   70.3125,  0.10109539,  0.7806474,  NaN),
+                        AnovaFactor("Error",  366.372,  16,   22.89825)]
+ 
+            @testset "Replicate Vectors" begin
+                results = anova(observations1, [subject], factornames = ["S", "A"])
+                @test all(expected .≈ results.effects)
+            end
+            
+            @testset "Replicate First Dimension" begin
+                results = anova(observations2, [subject], factornames = ["S", "A"])
+                @test all(expected .≈ results.effects)
+            end
+        end
+
         @testset "Repeated measures ANOVA with no among-subject factors" begin
             observations1 = Array{Vector{Float64}, 2}(undef, 4, 8)
             observations1[1,1] = [8]

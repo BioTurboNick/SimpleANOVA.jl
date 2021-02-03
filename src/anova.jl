@@ -125,12 +125,12 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
         reverse!(factornames)
     end
 
-    validate(observations, factortypes, factornames, nfactors)
+    validate(observations, factortypes, factornames, nfactors, hasreplicates)
 
     anovakernel(observations, factornames, factortypes, hasreplicates)
 end
 
-function validate(observations, factortypes::Vector{FactorType}, factornames::Vector{<:AbstractString}, nfactors)
+function validate(observations, factortypes::Vector{FactorType}, factornames::Vector{<:AbstractString}, nfactors, hasreplicates)
     length(factortypes) == nfactors ||
             error("`factortypes` must have an entry for each factor.")
 
@@ -143,8 +143,8 @@ function validate(observations, factortypes::Vector{FactorType}, factornames::Ve
             error("Maximum of one subject/block factor.")
 
         notnestedfactortypes = filter(f -> !isnested(f), factortypes)
-        (notnestedfactortypes[2] == subject || notnestedfactortypes[3] == subject) ||
-            error("Subject/block factor must be second or third entry after any nested factors.")
+        subject ∈ notnestedfactortypes[1:min(4, end)] ||
+            error("Subject/block factor must be in the first four factors.")
         
         length(notnestedfactortypes) < 5 ||
             error("Maximum of 3 within-subjects or among-subjects factors.")
@@ -356,41 +356,59 @@ end
 
 function anovasubjecterrors(factorvarsdict, factortypes)
     factortypes = reverse(factortypes)
-    si = findfirst(x -> x == subject, factortypes)
+    si = findfirst(x -> x == subject, factortypes) # could just hardcode, but in case I generalize later
 
     nfactors = length(factortypes)
 
     if nfactors == 2
-        # one within-subject factor    
-        factorerrorvars = [factorvarsdict[(si,2)]]
+        if si == 2
+            # one among-subject factor
+            factorerrorvars = [factorvarsdict[(1, si)]]
+        else
+            # one within-subject factor    
+            factorerrorvars = [factorvarsdict[(si, 2)]]
+        end
 
     elseif nfactors == 3
-        if si == 2
-            # one among factor and one within-subject factor
-            factorerrorvars = [factorvarsdict[(1,si)]; factorvarsdict[(1,si,3)]; 
-                               factorvarsdict[(1,si,3)]]
+        if si == 3
+            # two among-subject factors
+            factorerrorvars = [factorvarsdict[(1, si)], factorerrorvars[(2, si)],
+                               factorerrorvars[(1, 2, si)]]
+        elseif si == 2
+            # one among-subject factor and one within-subject factor
+            factorerrorvars = [factorvarsdict[(1, si)]; factorvarsdict[(1, si, 3)]; 
+                               factorvarsdict[(1, si, 3)]]
         else
             # two within-subject factors
-            factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)];
-                               factorvarsdict[(si,2,3)]]
+            factorerrorvars = [factorvarsdict[(si, 2)]; factorvarsdict[(si, 3)];
+                               factorvarsdict[(si, 2, 3)]]
         end
+
     elseif nfactors == 4
-        if si == 3
+        if si == 4
+            # three among factors
+            factorerrorvars = [factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)];
+                               factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)];
+                               factorvarsdict[(1, 2, 3, si)]]
+        elseif si == 3
             # two among factors and one within-subject factor
-            factorerrorvars = [factorvarsdict[(1,2,si)]; factorvarsdict[(1,2,si)]; factorvarsdict[(1,2,si)];
-                               factorvarsdict[(1,2,si,4)]; factorvarsdict[(1,2,si,4)]; factorvarsdict[(1,2,si,4)]; zero(AnovaFactor);
-                               factorvarsdict[(1,2,si,4)]]
+            factorerrorvars = [factorvarsdict[(1, 2, si)]; factorvarsdict[(1, 2, si)];
+                               factorvarsdict[(1, 2, si)];
+                               factorvarsdict[(1, 2, si, 4)]; factorvarsdict[(1, 2, si, 4)]; factorvarsdict[(1, 2, si, 4)];
+                               factorvarsdict[(1, 2, si, 4)]]
         elseif si == 2
             # one among factor and two within-subject factors
-            factorerrorvars = [factorvarsdict[(1,si)]; factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)];
-                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)]; factorvarsdict[(1,si,3,4)];
-                               factorvarsdict[(1,si,3,4)]]
+            factorerrorvars = [factorvarsdict[(1, si)];
+                               factorvarsdict[(1, si, 3)]; factorvarsdict[(1, si, 4)];
+                               factorvarsdict[(1, si, 3)]; factorvarsdict[(1, si, 4)]; factorvarsdict[(1, si, 3, 4)];
+                               factorvarsdict[(1, si, 3, 4)]]
         else
             # three within-subject factors
-            factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)]; factorvarsdict[(si,4)];
-                               factorvarsdict[(si,2,3)]; factorvarsdict[(si,2,4)]; factorvarsdict[(si,3,4)];
-                               factorvarsdict[(si,2,3,4)];]
+            factorerrorvars = [factorvarsdict[(si, 2)]; factorvarsdict[(si, 3)]; factorvarsdict[(si, 4)];
+                               factorvarsdict[(si, 2, 3)]; factorvarsdict[(si, 2, 4)]; factorvarsdict[(si, 3, 4)];
+                               factorvarsdict[(si, 2, 3, 4)]]
         end
+
     else
         error("More than 3 non-subject factors are not supported.")
     end
