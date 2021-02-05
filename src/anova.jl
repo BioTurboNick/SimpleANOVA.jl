@@ -193,22 +193,22 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
     nnested = count(isnested, factortypes)
     nestedfactornames = @view factornames[1:nnested]
     nnestedfactorlevels = size(cellmeans)[1:nnested]
-    factornames = @view factornames[(nnested + 1):end]
-    factortypes = @view factortypes[(nnested + 1):end]
+    notnestedfactornames = @view factornames[(nnested + 1):end]
+    notnestedfactortypes = @view factortypes[(nnested + 1):end]
 
     nestedvars, nestederrorvars, cellmeans, nnestedreplicates = nestedfactors(cellmeans, nreplicates, nestedfactornames, errorvar)
 
     if isrepeatedmeasures
-        si = findfirst(x -> x == subject, factortypes)
-        factorvars, factorvarsdict = anovafactors(dropdims(mean(cellmeans, dims = si), dims = si), nnestedreplicates * size(cellmeans, si), factornames[Not(si)])
-        subjectinteractionvarsdict = subjectinteractions(cellmeans, si, nnestedreplicates, factornames)
+        si = findfirst(x -> x == subject, notnestedfactortypes)
+        factorvars, factorvarsdict = anovafactors(dropdims(mean(cellmeans, dims = si), dims = si), nnestedreplicates * size(cellmeans, si), notnestedfactornames[Not(si)])
+        subjectinteractionvarsdict = subjectinteractions(cellmeans, si, nnestedreplicates, notnestedfactornames)
         merge!(factorvarsdict, subjectinteractionvarsdict)
-        factorerrorvars = anovasubjecterrors(factorvarsdict, factortypes)
+        factorerrorvars = anovasubjecterrors(factorvarsdict, notnestedfactortypes)
     else
-        factorvars, factorvarsdict = anovafactors(cellmeans, nnestedreplicates, factornames)
-        factorerrorvars = nnested > 0 ? anovaerrors(factorvarsdict, factortypes, nestedvars[1]) :
-                          hasreplicates ? anovaerrors(factorvarsdict, factortypes, errorvar) :
-                          anovaerrors(factorvarsdict, factortypes, factorvars[end])
+        factorvars, factorvarsdict = anovafactors(cellmeans, nnestedreplicates, notnestedfactornames)
+        factorerrorvars = nnested > 0 ? anovaerrors(factorvarsdict, notnestedfactortypes, nestedvars[1]) :
+                          hasreplicates ? anovaerrors(factorvarsdict, notnestedfactortypes, errorvar) :
+                          anovaerrors(factorvarsdict, notnestedfactortypes, factorvars[end])
     end
 
     append!(factorvars, nestedvars)
@@ -231,7 +231,7 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
     npercrossedcell = length(observations) ÷ length(cellmeans)
     nfactorlevels = Int[size(cellmeans)...]
     effectsizes = isrepeatedmeasures ? repeat([NaN], length(factorresults)) :
-                                       effectsizescalc(factorresults, factorerrorvars, totalvar, npercrossedcell, nfactorlevels, factortypes, nnested, nnestedfactorlevels, nreplicates)
+                                       effectsizescalc(factorresults, factorerrorvars, totalvar, npercrossedcell, nfactorlevels, notnestedfactortypes, nnested, nnestedfactorlevels, nreplicates)
 
     factorresults = AnovaResult.(factorresults, effectsizes)
 
@@ -503,10 +503,11 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-function effectsizescalc(results, errorvars, total, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
+
+effectsizescalc(factorresults, factorerrorvars, totalvar, npercrossedcell, nfactorlevels, notnestedfactortypes, nnested, nnestedfactorlevels, nreplicates)
+function effectsizescalc(factorresults, factorerrorvars, totalvar, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnestedfactors, nnestedfactorlevels, nreplicates)
     ncrossedfactors = length(crossedfactortypes)
-    differences = [results[i].ms - errorvars[i].ms for i ∈ eachindex(results)] # 1 kb between this line and next
-    crossedfactordfs = [r.df for r ∈ results[1:ncrossedfactors]]
+    differences = [factorresults[i].ms - factorerrorvars[i].ms for i ∈ eachindex(factorresults)] # 1 kb between this line and next
     ncrossedfactorlevels = reverse(ncrossedfactorlevels)
     nnestedfactorlevels = reverse(nnestedfactorlevels)
     crossedfactortypes = reverse(crossedfactortypes)
@@ -518,18 +519,18 @@ function effectsizescalc(results, errorvars, total, npercrossedcell, ncrossedfac
 
     if ncrossedfactors == 1
         if nnestedfactors == 0
-            ω² = [(results[1].ss - results[1].df * errorvars[1].ms) / (total.ss + errorvars[1].ms)]
+            ω² = [(factorresults[1].ss - factorresults[1].df * factorerrorvars[1].ms) / (totalvar.ss + factorerrorvars[1].ms)]
         else
             effectdenominators = repeat([nreplicates], nnestedfactors + 1)
             nfactorlevels = [ncrossedfactorlevels...; nnestedfactorlevels...]
             effectdenominators[1] *= prod(nfactorlevels)
             factors = ones(Int, nnestedfactors + 1)
-            factors[1] = crossedfactordfs[1]
+            factors[1] = factorresults[1].df
             for i ∈ 2:nnestedfactors
                 effectdenominators[2:(end - i + 1)] .*= nfactorlevels[end - i + 2]
             end
             σ² = factors .* differences ./ effectdenominators
-            σ²total = sum(σ²) + errorvars[end].ms
+            σ²total = sum(σ²) + factorerrorvars[end].ms
             ω² = σ² ./ σ²total
         end
     else
@@ -550,26 +551,27 @@ function effectsizescalc(results, errorvars, total, npercrossedcell, ncrossedfac
                 imax = 6
             end
         end
+        
+        factors = calculate_effect_numerator_factors(imax, factorresults, ncrossedfactors, crossedfactortypes, interactionindexes)
 
-        icrossed = 1:ncrossedfactors # this whole block 1 kb
-        iother = ncrossedfactors < imax ? ((ncrossedfactors + 1):imax) : []
-        factors = Vector{Int}(undef, imax)
-        factors[icrossed] = [isfixed(crossedfactortypes[i]) ? crossedfactordfs[i] : 1 for i ∈ icrossed]
-        factors[iother] = [prod(factors[x]) for x ∈ interactionindexes]
+        function f(imax, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactortypes, interactionindexes)
+            icrossed = 1:ncrossedfactors
+            iother = (ncrossedfactors + 1):imax
 
-        effectsdenominators = repeat([npercrossedcell], imax)
-        israndomtype = israndom.(crossedfactortypes) # Originally used broadcasted equality (.==) but causes high allocations as of 1.3.0-rc3
-        isfixedtype = isfixed.(crossedfactortypes)
-        crossedeffectsdenominators = effectsdenominators[icrossed]
-        crossedeffectsdenominators[isfixedtype] .*= prod(ncrossedfactorlevels)
-        crossedeffectsdenominators[israndomtype] .*= [prod(ncrossedfactorlevels[Not(i)]) for i ∈ icrossed[israndomtype]]
-        effectsdenominators[icrossed] = crossedeffectsdenominators
-        effectsdenominators[iother] .*= [prod(ncrossedfactorlevels[Not(icrossed[israndomtype] ∩ x)]) for x ∈ interactionindexes] # 7kb - set intersection is 1kb, has to be done for each interaction
+            effectsdenominators = fill(npercrossedcell, imax)
+            israndomtype = israndom.(crossedfactortypes) # Originally used broadcasted equality (.==) but causes high allocations as of 1.3.0-rc3
+            crossedeffectsdenominators = effectsdenominators[icrossed] # responsible for 2 allocations as a view, 1 allocation without a view?
+            crossedeffectsdenominators .*= prod(ncrossedfactorlevels)
+            crossedeffectsdenominators[israndomtype] .÷= @view ncrossedfactorlevels[israndomtype] # responsible for 3 allocations
+            effectsdenominators[iother] .*= [prod(@view ncrossedfactorlevels[Not(icrossed[israndomtype] ∩ x)]) for x ∈ interactionindexes] # 7kb - set intersection is 1kb, has to be done for each interaction
+            effectsdenominators
+        end
+        effectsdenominators = f(imax, ncrossedfactors, ncrossedfactorlevels, npercrossedcell, crossedfactortypes, interactionindexes)
 
         σ² = factors .* differences[1:imax] ./ effectsdenominators
 
         if nnestedfactors > 0
-            nestedrange = (length(results) .- nnestedfactors .+ 1):length(results)
+            nestedrange = (length(factorresults) .- nnestedfactors .+ 1):length(factorresults)
             nestedeffectdenominators = repeat([nreplicates], nnestedfactors)
             for i ∈ 1:(nnestedfactors - 1)
                 nestedeffectdenominators[1:(end - i + 1)] .*= nnestedfactorlevels[end - i + 2]
@@ -578,8 +580,21 @@ function effectsizescalc(results, errorvars, total, npercrossedcell, ncrossedfac
             σ² = [σ²; σ²nested]
         end
 
-        σ²total = sum(σ²) + errorvars[end].ms
+        σ²total = sum(σ²) + factorerrorvars[end].ms
         ω² = σ² ./ σ²total
     end
     return ω²
+end
+
+function calculate_effect_numerator_factors(imax, factorresults, ncrossedfactors, crossedfactortypes, interactionindexes)
+    icrossed = 1:ncrossedfactors
+    iother = (ncrossedfactors + 1):imax
+    factors = ones(Int, imax)
+    for i ∈ icrossed
+        isfixed(crossedfactortypes[i]) && (factors[i] = factorresults[i].df)
+    end
+    for i ∈ eachindex(interactionindexes)
+        factors[iother[i]] = prod(@view factors[interactionindexes[i]])
+    end
+    factors
 end
