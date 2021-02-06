@@ -31,3 +31,7 @@ isapprox(x::AnovaFactor, y::AnovaFactor) =
 
 import Base.zero
 zero(::Type{AnovaFactor}) = AnovaFactor("", 0, 1, 0)
+
+import Base.-, Base.+
+-(x::AnovaFactor, y::AnovaEffect) = AnovaFactor(x.name, x.ss - y.ss, x.df - y.df)
++(x::AnovaFactor, y::AnovaEffect) = AnovaFactor(x.name, x.ss + y.ss, x.df + y.df)

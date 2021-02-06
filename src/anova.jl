@@ -247,7 +247,10 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
 
     factorresults = AnovaResult.(factorresults, effectsizes)
 
-    allresults = [totalvar; factorresults; errorvar]
+    subjectfactors = isrepeatedmeasures ? collect(values(subjectinteractionvarsdict)) : AnovaEffect[]
+    filter!(x -> x.ms != errorvar.ms, subjectfactors)
+
+    allresults = [totalvar; factorresults; subjectfactors; errorvar]
 
     return AnovaData(allresults, factorerrorvars, nfactorlevels, nreplicates, cellmeans)
 end
@@ -461,7 +464,6 @@ function subjectinteractions(cellmeans, si, nreplicates, factornames)
                 ifactor = ifactorvarsdict[k]
                 factorvarsdict[newk] = AnovaFactor(makefactorname(factornames[invertfactorindex.(collect(k[2:end]), length(factornames))], factornames[si], factornames[(si + 1):end]), ifactor)
             end
-            factorvarsdict[(invertfactorindex(si, length(factornames)),)] = ifactorvarsdict[(si,)]
         else
             for k ∈ keys(ifactorvarsdict)
                 1 ∈ k || continue
@@ -525,9 +527,11 @@ end
 function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnested, nnestedfactorlevels, nreplicates, subjectvar = nothing, si = 0)
     differences = [factorvars[i].ms - factorerrorvars[i].ms for i ∈ eachindex(factorvars)] # 1 kb between this line and next
     ncrossedfactorlevels = reverse(ncrossedfactorlevels)
-    npercrossedcell *= si > 0 ? ncrossedfactorlevels[si] : 1
+    nsubjects = si > 0 ? ncrossedfactorlevels[si] : 1
+    npercrossedcell *= nsubjects
     crossedfactortypes = reverse(crossedfactortypes)
-    if !isnothing(subjectvar)
+    isrepeatedmeasures = !isnothing(subjectvar)
+    if isrepeatedmeasures
         ncrossedfactorlevels = @views ncrossedfactorlevels[Not(si)]
         crossedfactortypes = @views crossedfactortypes[Not(si)]
     end
@@ -542,9 +546,21 @@ function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell,
         nnestedfactorlevels = nnestedfactorlevels[1:(end-1)]
     end
 
+    if isrepeatedmeasures
+        σ²subjects = (subjectvar.ms - errorvar.ms) / (prod(ncrossedfactorlevels) * npercrossedcell / nsubjects)
+    else
+        σ²subjects = 0
+    end
+
     if ncrossed == 1
         if nnested == 0
-            ω² = [(factorvars[1].ss - factorvars[1].df * factorerrorvars[1].ms) / (totalvar.ss + factorerrorvars[1].ms)]
+            if isrepeatedmeasures
+                numerator = (factorvars[1].df / (npercrossedcell * ncrossedfactorlevels[1])) * (factorvars[1].ms - errorvar.ms)
+                denominator = numerator + σ²subjects + errorvar.ms
+                ω² = [numerator / denominator]
+            else
+                ω² = [(factorvars[1].ss - factorvars[1].df * errorvar.ms) / (totalvar.ss + errorvar.ms)]
+            end
         else
             effectdenominators = fill(nreplicates, nnested + 1)
             nfactorlevels = [ncrossedfactorlevels...; nnestedfactorlevels...]
@@ -555,7 +571,8 @@ function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell,
                 effectdenominators[2:(end - i + 1)] .*= nfactorlevels[end - i + 2]
             end
             σ² = effectnumeratorfactors .* differences ./ effectdenominators
-            σ²total = sum(σ²) + errorvar.ms
+            σ²total = sum(σ²) + σ²subjects + errorvar.ms
+            
             ω² = σ² ./ σ²total
         end
     else
@@ -592,12 +609,7 @@ function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell,
             σ² = [σ²; σ²nested]
         end
 
-        σ²total = sum(σ²) + errorvar.ms
-        
-        if !isnothing(subjectvar)
-            σ²subjects = (subjectvar.ms - factorerrorvars[end].ms) / prod(ncrossedfactorlevels)
-            σ²total += σ²subjects
-        end
+        σ²total = sum(σ²) + σ²subjects + errorvar.ms
 
         ω² = σ² ./ σ²total
     end

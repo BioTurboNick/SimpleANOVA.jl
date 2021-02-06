@@ -587,7 +587,8 @@
                              6  5  8  9  8  7  2  1]
             
             expected = [AnovaValue(     "Total", 253.875, 31),
-                        AnovaResult(        "A",  83.125,  3, 27.708333,   3.793806, 0.025570297, NaN),
+                        AnovaResult(        "A",  83.125,  3, 27.708333,   3.793806, 0.025570297, 0.23878518),
+                        AnovaFactor(        "S",  17.375,  7,  2.48214286),
                         AnovaFactor("Remainder", 153.375, 21,  7.3035714)]
  
             @testset "Replicate Vectors" begin
