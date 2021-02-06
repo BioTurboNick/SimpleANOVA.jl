@@ -125,12 +125,12 @@ function anova(observations::AbstractArray{T}, factortypes::Vector{FactorType} =
         reverse!(factornames)
     end
 
-    validate(observations, factortypes, factornames, nfactors)
+    validate(observations, factortypes, factornames, nfactors, hasreplicates)
 
     anovakernel(observations, factornames, factortypes, hasreplicates)
 end
 
-function validate(observations, factortypes::Vector{FactorType}, factornames::Vector{<:AbstractString}, nfactors)
+function validate(observations, factortypes::Vector{FactorType}, factornames::Vector{<:AbstractString}, nfactors, hasreplicates)
     length(factortypes) == nfactors ||
             error("`factortypes` must have an entry for each factor.")
 
@@ -143,8 +143,8 @@ function validate(observations, factortypes::Vector{FactorType}, factornames::Ve
             error("Maximum of one subject/block factor.")
 
         notnestedfactortypes = filter(f -> !isnested(f), factortypes)
-        (notnestedfactortypes[2] == subject || notnestedfactortypes[3] == subject) ||
-            error("Subject/block factor must be second or third entry after any nested factors.")
+        subject ∈ notnestedfactortypes[1:min(4, end)] ||
+            error("Subject/block factor must be in the first four factors.")
         
         length(notnestedfactortypes) < 5 ||
             error("Maximum of 3 within-subjects or among-subjects factors.")
@@ -202,6 +202,14 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
         si = findfirst(x -> x == subject, notnestedfactortypes)
         factorvars, factorvarsdict = anovafactors(dropdims(mean(cellmeans, dims = si), dims = si), nnestedreplicates * size(cellmeans, si), notnestedfactornames[Not(si)])
         subjectinteractionvarsdict = subjectinteractions(cellmeans, si, nnestedreplicates, notnestedfactornames)
+        # adjust keys of factorvarsdict to adjust for missing subject factor
+        nfactors = ndims(cellmeans)
+        si = invertfactorindex(si, nfactors)
+        dictkeys = collect(keys(factorvarsdict))
+        for k ∈ dictkeys
+            knew = ntuple(i -> k[i] + (k[i] < si ? 0 : 1), length(k))
+            factorvarsdict[knew] = factorvarsdict[k]
+        end
         merge!(factorvarsdict, subjectinteractionvarsdict)
         factorerrorvars = anovasubjecterrors(factorvarsdict, notnestedfactortypes)
     else
@@ -218,8 +226,7 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
     npercrossedcell = length(observations) ÷ length(cellmeans)
     nfactorlevels = Int[size(cellmeans)...]
     if isrepeatedmeasures
-        # trying to sort and then reinsert subject vars into factorvars.... ******************
-        effectsizes = effectsizescalc([factorvars; subjectvars], factorerrorvars, totalvar, npercrossedcell, nfactorlevels, notnestedfactortypes, nnested, nnestedfactorlevels, nreplicates)
+        effectsizes = effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell, nfactorlevels, notnestedfactortypes, nnested, nnestedfactorlevels, nreplicates, factorvarsdict[(si,)], si)
     else
         effectsizes = effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell, nfactorlevels, notnestedfactortypes, nnested, nnestedfactorlevels, nreplicates)
     end
@@ -255,7 +262,7 @@ function anovafactors(cellmeans, nreplicates, factornames)
 
     allfactors = []
     allfactorvars = AnovaFactor[]
-    allfactorsdict = Dict{Any, AnovaEffect}()
+    allfactorsdict = Dict{Tuple{Vararg{Int}}, AnovaEffect}()
     for i ∈ factors
         ifactors = collect(combinations(reverse(factors), i))
         iotherfactors = [factors[Not(i...)] for i ∈ ifactors]
@@ -366,35 +373,51 @@ function anovasubjecterrors(factorvarsdict, factortypes)
     nfactors = length(factortypes)
 
     if nfactors == 2
-        # one within-subject factor    
-        factorerrorvars = [factorvarsdict[(si,2)]]
+        if si == 2
+            # one among-subject factor
+            factorerrorvars = [factorvarsdict[(1, si)]]
+        else
+            # one within-subject factor    
+            factorerrorvars = [factorvarsdict[(si, 2)]]
+        end
 
     elseif nfactors == 3
-        if si == 2
-            # one among factor and one within-subject factor
-            factorerrorvars = [factorvarsdict[(1,si)]; factorvarsdict[(1,si,3)]; 
-                               factorvarsdict[(1,si,3)]]
+        if si == 3
+            # two among-subject factors
+            factorerrorvars = [factorvarsdict[(1, si)], factorerrorvars[(2, si)],
+                               factorerrorvars[(1, 2, si)]]
+        elseif si == 2
+            # one among-subject factor and one within-subject factor
+            factorerrorvars = [factorvarsdict[(1, si)]; factorvarsdict[(1, si, 3)]; 
+                               factorvarsdict[(1, si, 3)]]
         else
             # two within-subject factors
-            factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)];
-                               factorvarsdict[(si,2,3)]]
+            factorerrorvars = [factorvarsdict[(si, 2)]; factorvarsdict[(si, 3)];
+                               factorvarsdict[(si, 2, 3)]]
         end
     elseif nfactors == 4
-        if si == 3
+        if si == 4
+            # three among factors
+            factorerrorvars = [factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)];
+                               factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)]; factorvarsdict[(1, 2, 3, si)];
+                               factorvarsdict[(1, 2, 3, si)]]
+        elseif si == 3
             # two among factors and one within-subject factor
-            factorerrorvars = [factorvarsdict[(1,2,si)]; factorvarsdict[(1,2,si)]; factorvarsdict[(1,2,si)];
-                               factorvarsdict[(1,2,si,4)]; factorvarsdict[(1,2,si,4)]; factorvarsdict[(1,2,si,4)];
-                               factorvarsdict[(1,2,si,4)]]
+            factorerrorvars = [factorvarsdict[(1, 2, si)]; factorvarsdict[(1, 2, si)];
+                               factorvarsdict[(1, 2, si)];
+                               factorvarsdict[(1, 2, si, 4)]; factorvarsdict[(1, 2, si, 4)]; factorvarsdict[(1, 2, si, 4)];
+                               factorvarsdict[(1, 2, si, 4)]]
         elseif si == 2
             # one among factor and two within-subject factors
-            factorerrorvars = [factorvarsdict[(1,si)]; factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)];
-                               factorvarsdict[(1,si,3)]; factorvarsdict[(1,si,4)]; factorvarsdict[(1,si,3,4)];
-                               factorvarsdict[(1,si,3,4)]]
+            factorerrorvars = [factorvarsdict[(1, si)];
+                               factorvarsdict[(1, si, 3)]; factorvarsdict[(1, si, 4)];
+                               factorvarsdict[(1, si, 3)]; factorvarsdict[(1, si, 4)]; factorvarsdict[(1, si, 3, 4)];
+                               factorvarsdict[(1, si, 3, 4)]]
         else
             # three within-subject factors
-            factorerrorvars = [factorvarsdict[(si,2)]; factorvarsdict[(si,3)]; factorvarsdict[(si,4)];
-                               factorvarsdict[(si,2,3)]; factorvarsdict[(si,2,4)]; factorvarsdict[(si,3,4)];
-                               factorvarsdict[(si,2,3,4)];]
+            factorerrorvars = [factorvarsdict[(si, 2)]; factorvarsdict[(si, 3)]; factorvarsdict[(si, 4)];
+                               factorvarsdict[(si, 2, 3)]; factorvarsdict[(si, 2, 4)]; factorvarsdict[(si, 3, 4)];
+                               factorvarsdict[(si, 2, 3, 4)]]
         end
     else
         error("More than 3 non-subject factors are not supported.")
@@ -422,21 +445,11 @@ function nestedfactors(cellmeans, nreplicates, factornames, errorvar)
     return reverse!(nestedvars), reverse!(nestederrorvars), cellmeans, nreplicates
 end
 
-function subjectfactor(cellmeans, si, nreplicates, factornames)
-    withinfactors = 1:(si - 1)
-    nreplicates *= prod(size(cellmeans)[withinfactors])
-    cellmeans = dropdims(mean(cellmeans, dims = withinfactors), dims = tuple(withinfactors...))
-    subjectmeans = mean(cellmeans, dims = 1)
-    ss = sum((cellmeans .- subjectmeans) .^ 2) * nreplicates
-    df = (size(cellmeans, 1) - 1) * prod(size(subjectmeans))
-    AnovaFactor(factornames[si], ss, df)
-end
-
 function subjectinteractions(cellmeans, si, nreplicates, factornames)
     cellmeans = reshape(cellmeans, (size(cellmeans)[1:si]..., prod(size(cellmeans)[(si + 1):end])))
     namongfactors = length(factornames) - si
     
-    factorvarsdict = Dict{Any, AnovaEffect}()
+    factorvarsdict = Dict{Tuple{Vararg{Int}}, AnovaEffect}()
     for i ∈ axes(cellmeans, si + 1)
         _, ifactorvarsdict = @views anovafactors(selectdim(cellmeans, si + 1, i), nreplicates, factornames[1:si])
 
@@ -446,8 +459,9 @@ function subjectinteractions(cellmeans, si, nreplicates, factornames)
 
                 newk = ((1:namongfactors)..., (k .+ namongfactors)...)
                 ifactor = ifactorvarsdict[k]
-                factorvarsdict[newk] = AnovaValue(makefactorname(factornames[invertfactorindex.(collect(k[2:end]), length(factornames))], factornames[si], factornames[(si + 1):end]), ifactor)
+                factorvarsdict[newk] = AnovaFactor(makefactorname(factornames[invertfactorindex.(collect(k[2:end]), length(factornames))], factornames[si], factornames[(si + 1):end]), ifactor)
             end
+            factorvarsdict[(invertfactorindex(si, length(factornames)),)] = ifactorvarsdict[(si,)]
         else
             for k ∈ keys(ifactorvarsdict)
                 1 ∈ k || continue
@@ -508,12 +522,20 @@ function ftest(x, y)
     AnovaResult(x, f, p)
 end
 
-function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnested, nnestedfactorlevels, nreplicates)
-    ncrossed = length(crossedfactortypes)
+function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell, ncrossedfactorlevels, crossedfactortypes, nnested, nnestedfactorlevels, nreplicates, subjectvar = nothing, si = 0)
     differences = [factorvars[i].ms - factorerrorvars[i].ms for i ∈ eachindex(factorvars)] # 1 kb between this line and next
     ncrossedfactorlevels = reverse(ncrossedfactorlevels)
-    nnestedfactorlevels = reverse(nnestedfactorlevels)
+    npercrossedcell *= si > 0 ? ncrossedfactorlevels[si] : 1
     crossedfactortypes = reverse(crossedfactortypes)
+    if !isnothing(subjectvar)
+        ncrossedfactorlevels = @views ncrossedfactorlevels[Not(si)]
+        crossedfactortypes = @views crossedfactortypes[Not(si)]
+    end
+    nnestedfactorlevels = reverse(nnestedfactorlevels)
+
+    errorvar = (nreplicates > 1 || length(factorerrorvars) == 1) ? factorerrorvars[end] : factorerrorvars[end - 1]
+
+    ncrossed = length(crossedfactortypes)
 
     if nreplicates == 1 && nnested > 0
         nnested -= 1
@@ -527,39 +549,32 @@ function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell,
             effectdenominators = fill(nreplicates, nnested + 1)
             nfactorlevels = [ncrossedfactorlevels...; nnestedfactorlevels...]
             effectdenominators[1] *= prod(nfactorlevels)
-            factors = ones(Int, nnested + 1)
-            factors[1] = factorvars[1].df
+            effectnumeratorfactors = ones(Int, nnested + 1)
+            effectnumeratorfactors[1] = factorvars[1].df
             for i ∈ 2:nnested
                 effectdenominators[2:(end - i + 1)] .*= nfactorlevels[end - i + 2]
             end
-            σ² = factors .* differences ./ effectdenominators
-            σ²total = sum(σ²) + factorerrorvars[end].ms
+            σ² = effectnumeratorfactors .* differences ./ effectdenominators
+            σ²total = sum(σ²) + errorvar.ms
             ω² = σ² ./ σ²total
         end
     else
-       if ncrossed == 2 # this whole block not quite 1 kb
+        icrossed = 1:ncrossed
+        if ncrossed == 2 # this whole block not quite 1 kb
             if npercrossedcell > 1
-                interactionindexes = (combinations(factors, 2)...,)
+                interactionindexes = (combinations(icrossed, 2)...,)
                 imax = 3
             else
                 interactionindexes = ()
                 imax = 2
             end
-        elseif ncrossed == 3
-            if npercrossedcell > 1
-                interactionindexes = (combinations(factors, 2)..., combinations(factors, 3)...)
-                imax = 7
-            else
-                interactionindexes = (combinations(factors, 2)...,)
-                imax = 6
-            end
         else
             if npercrossedcell > 1
-                interactionindexes = (combinations(factors, 2)..., combinations(factors, 3)..., combinations(factors, 4)...)
-                imax = 15
+                interactionindexes = (combinations(icrossed, 2)..., combinations(icrossed, 3)...)
+                imax = 7
             else
-                interactionindexes = (combinations(factors, 2)..., combinations(factors, 3)...)
-                imax = 14
+                interactionindexes = (combinations(icrossed, 2)...,)
+                imax = 6
             end
         end
         
@@ -577,7 +592,13 @@ function effectsizescalc(factorvars, factorerrorvars, totalvar, npercrossedcell,
             σ² = [σ²; σ²nested]
         end
 
-        σ²total = sum(σ²) + factorerrorvars[end].ms
+        σ²total = sum(σ²) + errorvar.ms
+        
+        if !isnothing(subjectvar)
+            σ²subjects = (subjectvar.ms - factorerrorvars[end].ms) / prod(ncrossedfactorlevels)
+            σ²total += σ²subjects
+        end
+
         ω² = σ² ./ σ²total
     end
     return ω²
