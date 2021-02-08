@@ -20,6 +20,8 @@ Can also work with multiple vectors and DataFrames.
 
 **New in v0.7**: Repeated measures added. Effect size not yet supported.
 
+**New in v0.8**: Implemented generalized ω² effect size which is robust to experimental design choice.
+
 See docstrings for usage.
 
 **Experimental, use at own risk!**
