@@ -740,7 +740,7 @@ observations2 = cat(hcat([10, 15, 20], [11, 16, 21], [12, 15, 19]),
             end
         end
 
-        @testset "No replicates"
+        @testset "No replicates" begin
             observations = cat(hcat([16.5, 18.4, 12.7, 14.0, 12.8], [39.1, 26.2, 21.3, 35.8, 40.2]),
                                hcat([14.5, 11.0, 10.8, 14.3, 10.0], [32.0, 23.8, 28.8, 25.0, 29.3]), dims = 3) |> vec
 
