@@ -718,24 +718,52 @@ observations2 = cat(hcat([10, 15, 20], [11, 16, 21], [12, 15, 19]),
                         2.4, 2.7, 2.4, 2.6, 2.0, 2.3, 2.1, 2.4, 2.4, 2.6, 2.3, 2.2,
                         3.0, 3.1, 3.0, 2.7, 3.1, 3.0, 2.8, 3.2, 3.2, 2.9, 2.8, 2.9]
 
-        factorassignments = [[repeat([1], 36); repeat([2], 36)],
-                             repeat([repeat([1], 12); repeat([2], 12); repeat([3], 12)], 2),
-                             repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
+        @testset "Replicates"
+            factorassignments = [[repeat([1], 36); repeat([2], 36)],
+                                 repeat([repeat([1], 12); repeat([2], 12); repeat([3], 12)], 2),
+                                 repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
 
-        expected = [AnovaValue(     "Total", 30.355,       71),
-                    AnovaResult(        "A",  1.8175,       2,  0.90875,      24.475062,    2.71459995e-8, 0.39470429),
-                    AnovaResult(        "B", 24.655833,     2, 12.3279167,   332.02369,     4.5550981e-31, 0.9019137),
-                    AnovaResult(        "C",  0.008888889,  1,  0.008888889,   0.239401496, 0.62662035,   -0.010676655),
-                    AnovaResult(    "A × B",  1.10166667,   4,  0.27541667,    7.4177057,   7.7516681e-5,  0.262830006),
-                    AnovaResult(    "A × C",  0.37027778,   2,  0.18513889,    4.9862843,   0.0102990988,  0.09969129),
-                    AnovaResult(    "B × C",  0.17527778,   2,  0.08763889,    2.3603491,   0.104056404,   0.036411574),
-                    AnovaResult("A × B × C",  0.220555556,  4,  0.055138889,   1.4850374,   0.21958095,    0.02623946),
-                    AnovaFactor(    "Error",  2.005,       54,  0.03712963)]
+            expected = [AnovaValue(     "Total", 30.355,       71),
+                        AnovaResult(        "A",  1.8175,       2,  0.90875,      24.475062,    2.71459995e-8, 0.39470429),
+                        AnovaResult(        "B", 24.655833,     2, 12.3279167,   332.02369,     4.5550981e-31, 0.9019137),
+                        AnovaResult(        "C",  0.008888889,  1,  0.008888889,   0.239401496, 0.62662035,   -0.010676655),
+                        AnovaResult(    "A × B",  1.10166667,   4,  0.27541667,    7.4177057,   7.7516681e-5,  0.262830006),
+                        AnovaResult(    "A × C",  0.37027778,   2,  0.18513889,    4.9862843,   0.0102990988,  0.09969129),
+                        AnovaResult(    "B × C",  0.17527778,   2,  0.08763889,    2.3603491,   0.104056404,   0.036411574),
+                        AnovaResult("A × B × C",  0.220555556,  4,  0.055138889,   1.4850374,   0.21958095,    0.02623946),
+                        AnovaFactor(    "Error",  2.005,       54,  0.03712963)]
 
-        @testset "3-way ANOVA shuffled" begin
-            df = DataFrame([[observations]; factorassignments], [:observations; :C; :B; :A])
-            results = anova(df, :observations, [:C; :B; :A])
-            @test all(expected .≈ results.effects)
+            @testset "3-way ANOVA shuffled" begin
+                df = DataFrame([[observations]; factorassignments], [:observations; :C; :B; :A])
+                results = anova(df, :observations, [:C; :B; :A])
+                @test all(expected .≈ results.effects)
+            end
+        end
+
+        @testset "No replicates"
+            Random.seed!(1)
+
+            df = DataFrame(
+                 C = repeat(1:2; inner=6),
+                 B = repeat(1:3, inner=2, outer=2),
+                 A = repeat(1:2, 6),
+                 observations = round.(rand(Float64, 12), digits=1)
+             )
+
+            expected = [AnovaValue(     "Total", 30.355,       71),
+                        AnovaResult(        "A",  1.8175,       2,  0.90875,      24.475062,    2.71459995e-8, 0.39470429),
+                        AnovaResult(        "B", 24.655833,     2, 12.3279167,   332.02369,     4.5550981e-31, 0.9019137),
+                        AnovaResult(        "C",  0.008888889,  1,  0.008888889,   0.239401496, 0.62662035,   -0.010676655),
+                        AnovaResult(    "A × B",  1.10166667,   4,  0.27541667,    7.4177057,   7.7516681e-5,  0.262830006),
+                        AnovaResult(    "A × C",  0.37027778,   2,  0.18513889,    4.9862843,   0.0102990988,  0.09969129),
+                        AnovaResult(    "B × C",  0.17527778,   2,  0.08763889,    2.3603491,   0.104056404,   0.036411574),
+                        AnovaResult("A × B × C",  0.220555556,  4,  0.055138889,   1.4850374,   0.21958095,    0.02623946),
+                        AnovaFactor(    "Error",  2.005,       54,  0.03712963)]
+
+            @testset "4-way ANOVA shuffled" begin
+                results = anova(df, :observations, [:C; :B; :A])
+                @test all(expected .≈ results.effects)
+            end
         end
     end
 end
