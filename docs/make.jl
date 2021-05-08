@@ -1,7 +1,6 @@
 using Documenter
 using SimpleANOVA
 
-# This ensures that the jldoctests are executed when running the tests.
 DocMeta.setdocmeta!(
     SimpleANOVA,
     :DocTestSetup,
