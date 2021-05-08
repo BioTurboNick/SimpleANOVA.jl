@@ -36,6 +36,7 @@ function __init__()
         include("anova_dataframes.jl")
         include("pretests_dataframes.jl")
     end
+    @require CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597" include("anova_categoricalarrays.jl")
     @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" include("anova_plots.jl")
 end
 

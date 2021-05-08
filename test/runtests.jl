@@ -1,6 +1,7 @@
 using SimpleANOVA
 using Test
 using DataFrames
+using CategoricalArrays
 
 @testset "SimpleANOVA Tests" begin
 include("test_anova.jl")

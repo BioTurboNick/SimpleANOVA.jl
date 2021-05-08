@@ -763,4 +763,14 @@ observations2 = cat(hcat([10, 15, 20], [11, 16, 21], [12, 15, 19]),
             end
         end
     end
+
+    @testset "CategoricalArrays" begin
+        df = DataFrame(
+                 C = categorical(repeat(1:2; inner=6)),
+                 B = categorical(repeat(1:3, inner=2, outer=2)),
+                 A = categorical(repeat(1:2, 6)),
+                 observations = round.(rand(Float64, 12), digits=1)
+              )
+        anova(df, :observations, [:C; :B; :A]) # just looking to not fail
+    end
 end
