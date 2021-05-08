@@ -4,6 +4,7 @@ authors = ["Nicholas Bauer <nicholasbauer@outlook.com>"]
 version = "0.8.1"
 
 [deps]
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
@@ -11,17 +12,17 @@ Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
+CategoricalArrays = "0.9"
 Combinatorics = "1"
-Distributions = "0.21, 0.22, 0.23, 0.24, 0.25" # hyphen needs Julia 1.4
+Distributions = "0.21, 0.22, 0.23, 0.24, 0.25"
 InvertedIndices = "1"
 Requires = "0.5.2, 1"
 julia = "1"
 
 [extras]
-CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "DataFrames", "CategoricalArrays"]
+test = ["Test", "DataFrames"]

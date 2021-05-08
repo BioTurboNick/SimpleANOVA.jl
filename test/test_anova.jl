@@ -758,7 +758,7 @@ observations2 = cat(hcat([10, 15, 20], [11, 16, 21], [12, 15, 19]),
                          AnovaFactor("Remainder",  366.372,  16,   22.89825)]
 
             @testset "3-way ANOVA shuffled" begin
-                results = anova(df, :observations, [:C; :B; :A])
+                results = anova(df, :observations, [:C; :B; :A], [nested])
                 @test all(expected .≈ results.effects)
             end
         end
