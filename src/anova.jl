@@ -67,18 +67,19 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     nfactors = length(factorassignments)
     N = length(observations)
     all(length.(factorassignments) .== N) || error("Each observation must have an assignment for each factor.")
-    factorlevels = factorassignments .|> unique .|> sort
-    nfactorlevels = length.(factorlevels)
-    N % prod(nfactorlevels) == 0 || error("Design is unbalanced.")
 
     factorassignments = categorical.(factorassignments)
     droplevels!.(factorassignments)
+
+    factorlevels = levels.(factorassignments)
+    nfactorlevels = length.(factorlevels)
+    N % prod(nfactorlevels) == 0 || error("Design is unbalanced.")
     
     factorlevelcounts = [[count(l -> l == factorlevels[i][j], factorassignments[i]) for j ∈ 1:nfactorlevels[i]] for i ∈ 1:nfactors]
     nperfactorlevel = factorlevelcounts .|> unique
     all(nperfactorlevel .|> length .== 1) || error("Design is unbalanced.")
     nperfactorlevel = nperfactorlevel .|> first
-
+    
     nreplicates = Int(N / prod(nfactorlevels))
     hasreplicates = nreplicates > 1
     if hasreplicates
