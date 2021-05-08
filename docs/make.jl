@@ -16,7 +16,7 @@ makedocs(
         "API" => "api.md"
     ],
     format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true"),
-    modules = [MCMCChains],
+    modules = [SimpleANOVA],
     strict = true,
     checkdocs = :exports
 )
