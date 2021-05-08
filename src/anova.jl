@@ -66,12 +66,11 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     length(observations) > 0 || return
     nfactors = length(factorassignments)
     N = length(observations)
-    N % nfactors == 0 || error("Design is unbalanced.")
     all(length.(factorassignments) .== N) || error("Each observation must have an assignment for each factor.")
 
     factorlevels = factorassignments .|> unique .|> sort
     nfactorlevels = length.(factorlevels)
-    all(N .& nfactorlevels .== 0) || error("Design is unbalanced.")
+    all(N .% nfactorlevels .== 0) || error("Design is unbalanced.")
     factorlevelcounts = [[count(l -> l == factorlevels[i][j], factorassignments[i]) for j ∈ 1:nfactorlevels[i]] for i ∈ 1:nfactors]
     nperfactorlevel = factorlevelcounts .|> unique
     all(nperfactorlevel .|> length .== 1) || error("Design is unbalanced.")
@@ -84,10 +83,16 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     end
 
     nreplicates = Int(N / prod(nfactorlevels))
-
-    nlevels = [nreplicates; nfactorlevels]
-    sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
-                         sum([factorassignments[i] .* prod(nlevels[1:i]) for i ∈ 1:nfactors]))
+    hasreplicates = nreplicates > 1
+    if hasreplicates
+        nlevels = [nreplicates; nfactorlevels]
+        sortorder = sortperm(repeat(1:nreplicates, Int(N / nreplicates)) .+
+                             sum([factorassignments[i] .* prod(nlevels[1:i]) for i ∈ 1:nfactors]))
+    else
+        nlevels = nfactorlevels
+        sortorder = sortperm(sum([factorassignments[i] .* prod(nlevels[1:i - 1]) for i ∈ 1:nfactors]))
+    end
+    
     observationsmatrix = reshape(observations[sortorder], nlevels...)
     anova(observationsmatrix, factortypes, factornames = factornames, hasreplicates = nreplicates > 1)
 end
