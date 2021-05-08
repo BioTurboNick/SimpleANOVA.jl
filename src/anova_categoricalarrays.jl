@@ -1,4 +1,4 @@
-using .CategoricalArrays
+using CategoricalArrays
 
 import Base.:*
 

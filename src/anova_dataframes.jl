@@ -1,4 +1,4 @@
-using .DataFrames
+using DataFrames
 
 function anova(df::DataFrame, observationscolumn::Symbol, factorcolumns::Vector{Symbol}, factortypes::Vector{FactorType} = FactorType[]; factornames::Vector{<:AbstractString} = String[])
     observations = df[!, observationscolumn]
