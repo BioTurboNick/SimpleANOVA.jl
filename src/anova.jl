@@ -69,7 +69,7 @@ function anova(observations::AbstractVector{T}, factorassignments::AbstractVecto
     all(length.(factorassignments) .== N) || error("Each observation must have an assignment for each factor.")
     factorlevels = factorassignments .|> unique .|> sort
     nfactorlevels = length.(factorlevels)
-    all(N .% nfactorlevels .== 0) || error("Design is unbalanced in factor $i.")
+    N % prod(nfactorlevels) == 0 || error("Design is unbalanced.")
 
     factorassignments = categorical.(factorassignments)
     droplevels!.(factorassignments)
