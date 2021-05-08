@@ -718,7 +718,7 @@ observations2 = cat(hcat([10, 15, 20], [11, 16, 21], [12, 15, 19]),
                         2.4, 2.7, 2.4, 2.6, 2.0, 2.3, 2.1, 2.4, 2.4, 2.6, 2.3, 2.2,
                         3.0, 3.1, 3.0, 2.7, 3.1, 3.0, 2.8, 3.2, 3.2, 2.9, 2.8, 2.9]
 
-        @testset "Replicates"
+        @testset "Replicates" begin
             factorassignments = [[repeat([1], 36); repeat([2], 36)],
                                  repeat([repeat([1], 12); repeat([2], 12); repeat([3], 12)], 2),
                                  repeat([repeat([1], 4); repeat([2], 4); repeat([3], 4)], 6)]
