@@ -1,9 +1,19 @@
 # SimpleANOVA.jl
 
-[![Build Status](https://travis-ci.org/BioTurboNick/SimpleANOVA.jl.svg?branch=master)](https://travis-ci.org/BioTurboNick/SimpleANOVA.jl)
-[![codecov.io](https://codecov.io/github/BioTurboNick/SimpleANOVA.jl/coverage.svg?branch=master)](https://codecov.io/github/BioTurboNick/SimpleANOVA.jl?branch=master)
-
 Analysis of Variance for Julia, the old-fashioned way.
+
+| Documentation | CI Status
+|:-----------------:|:------------------:|
+| [![][docs-stable-img]][docs-stable-url] [![][docs-latest-img]][docs-latest-url] | [![][ci-img]][ci-url] |
+
+[docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
+[docs-latest-url]: https://BioTurboNick.github.io/SimpleANOVA.jl/dev
+
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[docs-stable-url]: https://BioTurboNick.github.io/SimpleANOVA.jl/stable
+
+[ci-img]: https://github.com/BioTurboNick/SimpleANOVA.jl/workflows/CI-stable/badge.svg
+[ci-url]: https://github.com/BioTurboNick/SimpleANOVA.jl/actions?query=workflow%3ACI-stable+branch%3Amaster
 
 This is a basic attempt to get a simple ANOVA implementation for Julia that works with data directly - no linear models.
 
@@ -25,54 +35,3 @@ Can also work with multiple vectors and DataFrames.
 See docstrings for usage.
 
 **Experimental, use at own risk!**
-
-Examples
---------
-```
-data                           # N-dimensional matrix of observations
-levene(data)                   # test data for homogeniety of variance
-result = anova(data)           # conduct the test
-plot(result)                   # create pairwise factor plots
-differencecontrasts(result, 2) # perform orthogonal series of difference contrasts for the levels of factor 2
-```
-```
-data                           # vector of observations
-factors                        # vector of factor level assignment vectors
-levene(data)                   # test data for homogeniety of variance
-result = anova(data, factors)  # conduct the test
-plot(result)                   # create pairwise factor plots
-contrast(result, [1, 2, 2, 2]) # calculate the contrast between factor level 1 of factor 1 with remaining factor levels
-```
-```
-df                                         # DataFrame
-factors                                    # vector of symbols for factor assignment columns
-levene(df, :observations, factors)         # test data for homogeniety of variance
-result = anova(df, :observations, factors) # conduct the test
-plot(result)                               # create pairwise factor plots
-simplecontrasts(result)                    # calculate the contrast between the first factor level (control) to each other level
-```
-
-Differences from SPSS
----------------------
-Choice of error terms for the F tests in mixed ANOVA follows Zar 1999, _Biostatistical Analysis_, and Howell 2013, _Statistical Methods for Psychology_, which differs from SPSS 25 Univariate GLM as follows:
-
-2-way ANOVA with 1 fixed and 1 random factor
-
-|                | A (Fixed) | B (Random) |
-|----------------|-----------|------------|
-| SPSS           | Error     | Error      |
-| SimpleANOVA.jl | A×B       | Error      |
-
-3-way ANOVA with 2 fixed and 1 random factors
-
-|                | A (Fixed) | B (Fixed) | C (Random)        | A×B   | A×C   | B×C   | A×B×C |
-|----------------|-----------|-----------|-------------------|-------|-------|-------|-------|
-| SPSS           | A×C       | B×C       | A×C + B×C - A×B×C | A×B×C | A×B×C | A×B×C | Error |
-| SimpleANOVA.jl | A×C       | B×C       | Error             | A×B×C | Error | Error | Error |
-
-3-way ANOVA with 1 fixed and 2 random factors
-
-|                | A (Fixed)         | B (Random)        | C (Random)        | A×B   | A×C   | B×C   | A×B×C |
-|----------------|-------------------|-------------------|-------------------|-------|-------|-------|-------|
-| SPSS           | A×C + A×B - A×B×C | A×B + B×C - A×B×C | A×C + B×C - A×B×C | A×B×C | A×B×C | A×B×C | Error |
-| SimpleANOVA.jl | A×C + A×B - A×B×C | B×C               | B×C               | A×B×C | A×B×C | Error | Error |
