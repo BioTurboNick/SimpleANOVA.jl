@@ -1,7 +1,7 @@
 name = "SimpleANOVA"
 uuid = "fff527a3-8410-504e-9ca3-60d5e79bb1e4"
 authors = ["Nicholas Bauer <nicholasbauer@outlook.com>"]
-version = "0.8.1"
+version = "0.8.2"
 
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
