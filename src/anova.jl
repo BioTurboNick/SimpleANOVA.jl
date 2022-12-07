@@ -194,7 +194,8 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
     cellsdf = length(cellmeans) - 1
     cellsvar = anovavalue(cellsname, var(cellmeans) * nreplicates, cellsdf)
 
-    errorvar = AnovaFactor(errorname, totalvar - cellsvar)
+    diffvar = totalvar ≈ cellsvar ? 0 : totalvar - cellsvar
+    errorvar = AnovaFactor(errorname, diffvar)
 
     nnested = count(isnested, factortypes)
     nestedfactornames = @view factornames[1:nnested]
@@ -278,7 +279,13 @@ function anovafactors(cellmeans, nreplicates, factornames)
         iupperfactorvars = [allfactorvars[findall(x -> x ⊆ i, allfactors)] for i ∈ ifactors]
 
         ifactornames = [makefactorname(factornames[i]) for i ∈ ifactors]
-        ifactorss = [var(mean(cellmeans, dims = iotherfactors[i]), corrected = false) * N - sum(iupperfactorvars[i]).ss for i ∈ eachindex(iotherfactors)]
+        ifactorss = map(eachindex(iotherfactors)) do i
+            x = var(mean(cellmeans, dims = iotherfactors[i]), corrected = false) * N
+            y = sum(sort!([iufv.ss for iufv ∈ iupperfactorvars[i]]))
+            x ≈ y ?
+                0 :
+                x - y
+        end
         ifactordf = isempty(iupperfactorvars[1]) ? [size(cellmeans, invertfactorindex(i, nfactors)) - 1 for i ∈ factors] :
                                                    [prod(f.df for f ∈ iupperfactorvars[j][1:i]) for j ∈ eachindex(iotherfactors)]
         ifactorvars = AnovaFactor.(ifactornames, ifactorss, ifactordf)
@@ -443,7 +450,9 @@ function nestedfactors(cellmeans, nreplicates, factornames, errorvar)
     nestedvars = AnovaFactor[]
     for i ∈ 1:nnested
         nestedmeans = mean(cellmeans, dims = 1)
-        ss = sum((cellmeans .- nestedmeans) .^ 2) * nreplicates
+        diffs = cellmeans .- nestedmeans
+        diffs[abs.(diffs) .< √eps()] .= 0
+        ss = sum(sort!(diffs .^ 2 |> vec)) * nreplicates
         df = (size(cellmeans, 1) - 1) * prod(size(nestedmeans))
         push!(nestedvars, AnovaFactor(factornames[i], ss, df))
         nreplicates *= size(cellmeans, 1)
@@ -518,7 +527,10 @@ end
 
 function threeway_random_error(interaction_ab, interaction_bc, interaction_abc)
     reducedmeansquare(factor::AnovaFactor) = factor.ms ^ 2 / factor.df
-    ms = interaction_ab.ms + interaction_bc.ms - interaction_abc.ms
+    interaction_ab_bc_ms = interaction_ab.ms + interaction_bc.ms
+    ms = interaction_ab_bc_ms ≈ interaction_abc.ms ?
+        0 :
+        interaction_ab_bc_ms - interaction_abc.ms
     df = ms ^ 2 / (reducedmeansquare(interaction_ab) + reducedmeansquare(interaction_bc) + reducedmeansquare(interaction_abc))
     AnovaFactor("", ms * df, df, ms)
 end
@@ -541,11 +553,11 @@ function effectsizeω²(factorvars, factorerrorvars, nestedvars, nestederrorvars
     
     containsrandomfactor = random .∈ combinations(factortypes)
     length(containsrandomfactor) == length(factorvars) || pop!(containsrandomfactor)
-    σ²random = sum(σ²factorvars[containsrandomfactor])
+    σ²random = sum(sort(σ²factorvars[containsrandomfactor]))
 
     subjecterrorvars = (errorvar, subjectvars...)
-    σ²nested = !isempty(nestedvars) ? sum(σ²nestedvars) : 0
-    σ²error = N * sum(s.ss for s ∈ subjecterrorvars) / sum(s.df for s ∈ subjecterrorvars) # pool error from subject factors
+    σ²nested = !isempty(nestedvars) ? sum(sort(σ²nestedvars)) : 0
+    σ²error = N * sum(sort!([s.ss for s ∈ subjecterrorvars])) / sum(sort!([s.df for s ∈ subjecterrorvars])) # pool error from subject factors
     
     σ²id = σ²random + σ²nested + σ²error # sum of all random-effects variance
     ω² = σ²factorvars ./ (.!containsrandomfactor .* σ²factorvars .+ σ²id) # factor only needs to appear in denominator if a fixed-effect
@@ -554,4 +566,11 @@ function effectsizeω²(factorvars, factorerrorvars, nestedvars, nestederrorvars
     return [ω²; ω²nested]
 end
 
-σ²component(factorvars, factorerrorvars) = [factorvars[i].ss - factorvars[i].df * factorerrorvars[i].ms for i ∈ eachindex(factorvars)]
+function σ²component(factorvars, factorerrorvars)
+    map(eachindex(factorvars)) do i
+        factorvars_df_ms = factorvars[i].df * factorerrorvars[i].ms
+        factorvars[i].ss ≈ factorvars_df_ms ?
+            0 :
+            factorvars[i].ss - factorvars_df_ms
+    end 
+end
