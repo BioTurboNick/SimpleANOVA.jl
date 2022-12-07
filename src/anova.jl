@@ -194,11 +194,8 @@ function anovakernel(observations::AbstractArray{<:Number}, factornames, factort
     cellsdf = length(cellmeans) - 1
     cellsvar = anovavalue(cellsname, var(cellmeans) * nreplicates, cellsdf)
 
-    if totalvar ≈ cellsvar
-        errorvar = AnovaFactor(errorname, 0)
-    else
-        errorvar = AnovaFactor(errorname, totalvar - cellsvar)
-    end
+    diffvar = totalvar ≈ cellsvar ? 0 : totalvar - cellsvar
+    errorvar = AnovaFactor(errorname, diffvar)
 
     nnested = count(isnested, factortypes)
     nestedfactornames = @view factornames[1:nnested]
@@ -285,11 +282,9 @@ function anovafactors(cellmeans, nreplicates, factornames)
         ifactorss = map(eachindex(iotherfactors)) do i
             x = var(mean(cellmeans, dims = iotherfactors[i]), corrected = false) * N
             y = sum(sort!([iufv.ss for iufv ∈ iupperfactorvars[i]]))
-            if x ≈ y
-                0
-            else
+            x ≈ y ?
+                0 :
                 x - y
-            end
         end
         ifactordf = isempty(iupperfactorvars[1]) ? [size(cellmeans, invertfactorindex(i, nfactors)) - 1 for i ∈ factors] :
                                                    [prod(f.df for f ∈ iupperfactorvars[j][1:i]) for j ∈ eachindex(iotherfactors)]
@@ -532,11 +527,10 @@ end
 
 function threeway_random_error(interaction_ab, interaction_bc, interaction_abc)
     reducedmeansquare(factor::AnovaFactor) = factor.ms ^ 2 / factor.df
-    if interaction_ab.ms + interaction_bc.ms ≈ interaction_abc.ms
-        ms = 0
-    else
-        ms = interaction_ab.ms + interaction_bc.ms - interaction_abc.ms
-    end
+    interaction_ab_bc_ms = interaction_ab.ms + interaction_bc.ms
+    ms = interaction_ab_bc_ms ≈ interaction_abc.ms ?
+        0 :
+        interaction_ab_bc_ms - interaction_abc.ms
     df = ms ^ 2 / (reducedmeansquare(interaction_ab) + reducedmeansquare(interaction_bc) + reducedmeansquare(interaction_abc))
     AnovaFactor("", ms * df, df, ms)
 end
@@ -574,10 +568,9 @@ end
 
 function σ²component(factorvars, factorerrorvars)
     map(eachindex(factorvars)) do i
-        if factorvars[i].ss ≈ factorvars[i].df * factorerrorvars[i].ms
-            0
-        else
-            factorvars[i].ss - factorvars[i].df * factorerrorvars[i].ms
-        end
+        factorvars_df_ms = factorvars[i].df * factorerrorvars[i].ms
+        factorvars[i].ss ≈ factorvars_df_ms ?
+            0 :
+            factorvars[i].ss - factorvars_df_ms
     end 
 end
